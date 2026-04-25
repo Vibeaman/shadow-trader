@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import LoadingScreen from './components/LoadingScreen';
 import Landing from './components/Landing';
 import Trade from './components/Trade';
 import Holdings from './components/Holdings';
@@ -8,6 +9,7 @@ import BottomNav from './components/BottomNav';
 import './index.css';
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
   const [wallet, setWallet] = useState(null);
   const [activeTab, setActiveTab] = useState('trade');
   const [demoMode, setDemoMode] = useState(true); // Toggle when API key is added
@@ -32,6 +34,11 @@ function App() {
     setWallet(null);
     setActiveTab('trade');
   };
+
+  // Show loading screen
+  if (isLoading) {
+    return <LoadingScreen onComplete={() => setIsLoading(false)} />;
+  }
 
   // Show landing if not connected
   if (!wallet) {

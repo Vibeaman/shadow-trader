@@ -121,7 +121,7 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }
 
       {/* Footer */}
       <div className="text-center py-6 text-xs text-gray-600">
-        <p>Shadow Trader v1.0.0</p>
+        <p>Ghost v1.0.0</p>
         <p className="mt-1">Built for Colosseum Frontier 2026</p>
         <p className="mt-1">By VIBÆMAN</p>
       </div>

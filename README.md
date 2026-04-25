@@ -1,128 +1,136 @@
-# Shadow Trader
+# 👻 Ghost
 
-AI trading agent that executes strategies without exposing positions, trade sizes, or wallet history onchain.
+Private AI trading on Solana. Trade without exposing your wallet history onchain.
 
-## The Problem
+![Ghost Banner](client/public/ghost-logo.png)
 
-Every trade you make onchain is public. MEV bots front-run you. Competitors copy your alpha. Your entire trading history is linked to your wallet forever.
+## What is Ghost?
 
-## The Solution
+Ghost is an AI-powered trading agent that executes your trades privately via [Vanish](https://vanish.trade). Your positions, trade sizes, and wallet history stay hidden from MEV bots, competitors, and onchain watchers.
 
-Shadow Trader is an AI-powered trading agent with privacy built in:
+## Features
 
-- **Private Execution** - Trades execute without linking wallet history (Vanish)
-- **Encrypted Strategy** - Your trading logic stays hidden (Arcium)
-- **AI-Powered** - Natural language commands, automated strategies
-- **Solana Native** - Fast, cheap, liquid
+- **🔒 Private Trading** - All swaps routed through Vanish (~200ms overhead)
+- **🤖 AI Commands** - Natural language trading ("buy SOL when it drops 5%")
+- **📈 Automated Strategies** - Set conditions, Ghost executes automatically
+- **🔐 Encrypted Strategies** - Arcium encryption keeps your alpha secret
+- **📱 Mobile-First UI** - Clean Trojan-style interface
 
 ## How It Works
 
 ```
-You: "Buy 1000 USDC worth of SOL when price drops 5%"
+You: "Buy SOL when it drops 5%"
      ↓
-[AI Agent] interprets intent, creates strategy
+[Ghost AI] creates automated strategy
      ↓
-[Arcium] encrypts strategy parameters
+[Price Monitor] watches SOL price
+     ↓
+[Strategy Engine] detects 5% drop
      ↓
 [Vanish] executes swap privately
      ↓
-You get SOL. No one knows your trade.
+You get SOL. No trace onchain.
 ```
 
 ## Tech Stack
 
-- **Arcium** - Encrypted computation layer
-- **Vanish** - Privacy layer for swaps (~200ms overhead)
-- **Condor/Hummingbot** - Trading agent framework
-- **Phantom** - Wallet connection
-- **Solana** - Base layer
-
-## Features
-
-### MVP (Hackathon)
-- [ ] Private swaps via Vanish API
-- [ ] Basic AI command parsing
-- [ ] Wallet connection (Phantom)
-- [ ] Simple trading strategies (limit orders, DCA)
-- [ ] Web UI dashboard
-
-### Future
-- [ ] Encrypted strategy storage (Arcium)
-- [ ] Advanced strategies (grid, arbitrage)
-- [ ] Multi-wallet support
-- [ ] Telegram bot interface
-- [ ] Portfolio analytics (private)
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    Frontend (React)                  │
-│  - Wallet connect  - Strategy builder  - Dashboard  │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│                  AI Agent Layer                      │
-│  - Intent parsing  - Strategy generation            │
-│  - Risk management - Execution planning             │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│                 Privacy Layer                        │
-│  ┌─────────────┐  ┌─────────────────────────────┐  │
-│  │   Arcium    │  │         Vanish              │  │
-│  │  (encrypt   │  │  (private swap execution)   │  │
-│  │  strategy)  │  │                             │  │
-│  └─────────────┘  └─────────────────────────────┘  │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│                    Solana                            │
-│  - Jupiter/DEX aggregators  - Token accounts        │
-└─────────────────────────────────────────────────────┘
-```
+- **Frontend**: React + Vite + Tailwind
+- **Backend**: Node.js + Express
+- **Privacy**: Vanish (private swaps)
+- **Encryption**: Arcium (strategy storage)
+- **AI**: OpenAI GPT-4o-mini
+- **DEX**: Jupiter aggregator
+- **Wallet**: Phantom
 
 ## Getting Started
 
 ```bash
+# Clone
+git clone https://github.com/Vibeaman/shadow-trader.git
+cd shadow-trader
+
 # Install dependencies
 npm install
+cd client && npm install && cd ..
 
 # Set up environment
 cp .env.example .env
-# Add your keys
+# Add your API keys
 
-# Run development server
+# Run development
 npm run dev
 ```
 
 ## Environment Variables
 
-```
-VANISH_API_KEY=
-PHANTOM_APP_ID=
+```env
+# Required for live trading
+VANISH_API_KEY=        # Get from https://discord.gg/vanishtrade
+
+# Required for AI commands
 OPENAI_API_KEY=
-SOLANA_RPC_URL=
+
+# Optional
+ARCIUM_API_KEY=        # For encrypted strategy storage
+SOLANA_RPC_URL=        # Default: public RPC
 ```
 
-## Hackathon Submission
+## Screens
 
-**Colosseum Frontier Hackathon** (April 6 - May 11, 2026)
+| Landing | Trade | AI Agent | Holdings |
+|---------|-------|----------|----------|
+| Connect wallet | Token list | Natural language | Vanish balance |
+| Features | Filters | Strategy management | Deposit/Withdraw |
+| How it works | Private swap | Automated triggers | Activity |
 
-**Tracks:**
-- AI
-- DeFi
-- Infrastructure
+## Hackathon
 
-**Sponsor Integrations:**
-- Arcium (privacy computation)
-- Vanish (private swaps - $10K bounty)
-- Phantom (wallet)
+Built for **Colosseum Frontier Hackathon** (April 6 - May 11, 2026)
 
-## Team
+**Tracks**: AI, DeFi, Infrastructure
 
-Built by VIBÆMAN
+**Sponsor Integrations**:
+- ✅ Vanish - Private swap execution ($10K bounty)
+- ✅ Phantom - Wallet connection
+- ✅ Arcium - Encrypted computation
+- ✅ Jupiter - DEX aggregation
+
+## Privacy Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Ghost                                │
+├─────────────────────────────────────────────────────────────┤
+│  AI Agent        Strategy Engine       Price Monitor        │
+│  (parse)         (conditions)          (Jupiter API)        │
+└──────────┬───────────────┬─────────────────┬────────────────┘
+           │               │                 │
+           ▼               ▼                 ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    Arcium Vault                              │
+│              (encrypted strategy storage)                    │
+└──────────────────────────┬───────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                       Vanish                                 │
+│  - One-time wallet generation                               │
+│  - Private swap execution                                   │
+│  - Jito bundle submission                                   │
+│  - Zero trace onchain                                       │
+└──────────────────────────┬───────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                       Solana                                 │
+│              (only sees one-time wallet)                    │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## License
 
 MIT
+
+---
+
+Built by **VIBÆMAN** 👻

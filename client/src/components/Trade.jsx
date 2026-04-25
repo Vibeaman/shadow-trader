@@ -56,9 +56,17 @@ export default function Trade({ wallet, demoMode }) {
 
   return (
     <div className="px-4 pt-4">
-      {/* Header */}
+      {/* Header with stylized G */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Trade</h1>
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <span className="text-white font-bold text-xl">G</span>
+          </div>
+          <div>
+            <h1 className="text-lg font-bold leading-none">Ghost</h1>
+            <p className="text-xs text-gray-500">Private Trading</p>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           <span className="text-xs text-gray-400">
