@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safe area for notched phones */
+.h-safe-bottom {
+  height: env(safe-area-inset-bottom, 0px);
+}
+
+/* Ensure body accounts for fixed bottom nav */
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 :root {
   --primary: #00dae9;
   --secondary: #8b5cf6;
