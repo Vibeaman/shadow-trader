@@ -2,12 +2,119 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Shadow Trader - Private AI Trading</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/ghost-logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <title>Ghost - Private Trading on Solana</title>
+    <style>
+      /* Instant loading screen - shows before React loads */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { 
+        background: #0a0a0f; 
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      #preloader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #0a0a0f;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.5s ease;
+      }
+      #preloader.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #preloader .glow {
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        background: rgba(0, 218, 233, 0.1);
+        border-radius: 50%;
+        filter: blur(80px);
+      }
+      #preloader .brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        position: relative;
+        z-index: 1;
+      }
+      #preloader .logo {
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+        filter: drop-shadow(0 0 20px rgba(0, 218, 233, 0.4));
+        animation: float 3s ease-in-out infinite;
+      }
+      #preloader .text {
+        font-size: 32px;
+        font-weight: 300;
+        letter-spacing: 8px;
+        color: white;
+      }
+      #preloader .tagline {
+        color: #666;
+        font-size: 12px;
+        margin-top: 24px;
+        letter-spacing: 2px;
+      }
+      #preloader .loader {
+        width: 120px;
+        height: 2px;
+        background: #1f1f2e;
+        border-radius: 2px;
+        margin-top: 32px;
+        overflow: hidden;
+      }
+      #preloader .loader-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #00dae9, #00b4d8);
+        border-radius: 2px;
+        animation: load 2s ease-out forwards;
+      }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+      @keyframes load {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+      }
+    </style>
   </head>
   <body>
+    <!-- Instant preloader - visible immediately -->
+    <div id="preloader">
+      <div class="glow"></div>
+      <div class="brand">
+        <img src="/ghost-logo.png" alt="Ghost" class="logo" />
+        <span class="text">GHOST</span>
+      </div>
+      <p class="tagline">PRIVATE TRADING</p>
+      <div class="loader">
+        <div class="loader-bar"></div>
+      </div>
+    </div>
+
+    <!-- React app -->
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <script>
+      // Hide preloader when React is ready
+      window.hidePreloader = function() {
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+          preloader.classList.add('fade-out');
+          setTimeout(() => preloader.remove(), 500);
+        }
+      };
+    </script>
   </body>
 </html>

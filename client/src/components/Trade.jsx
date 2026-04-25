@@ -56,16 +56,15 @@ export default function Trade({ wallet, demoMode }) {
 
   return (
     <div className="px-4 pt-4">
-      {/* Header with stylized G */}
+      {/* Header - Trojan style */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <span className="text-white font-bold text-xl">G</span>
-          </div>
-          <div>
-            <h1 className="text-lg font-bold leading-none">Ghost</h1>
-            <p className="text-xs text-gray-500">Private Trading</p>
-          </div>
+        <div className="flex items-center gap-3">
+          <img 
+            src="/ghost-logo.png" 
+            alt="Ghost" 
+            className="w-8 h-8 object-contain"
+          />
+          <span className="text-lg font-light tracking-[0.2em] text-white">GHOST</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />

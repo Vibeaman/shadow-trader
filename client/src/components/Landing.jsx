@@ -8,22 +8,18 @@ export default function Landing({ onConnect }) {
       </div>
 
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
-        {/* Logo */}
-        <div className="w-24 h-24 mb-6 relative">
+        {/* Logo + Brand - Trojan style */}
+        <div className="flex items-center gap-4 mb-4">
           <img 
             src="/ghost-logo.png" 
             alt="Ghost" 
-            className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(0,218,233,0.4)]"
+            className="w-14 h-14 object-contain drop-shadow-[0_0_30px_rgba(0,218,233,0.4)]"
           />
+          <h1 className="text-4xl font-light tracking-[0.3em] text-white">GHOST</h1>
         </div>
-
-        {/* Brand */}
-        <h1 className="text-4xl font-bold mb-2 tracking-wider">
-          <span className="text-white">G</span>
-          <span className="text-gray-300">HOST</span>
-        </h1>
-        <p className="text-gray-400 text-lg mb-8">
-          Trade privately on Solana
+        
+        <p className="text-gray-500 text-sm tracking-widest mb-10">
+          PRIVATE TRADING ON SOLANA
         </p>
 
         {/* Features */}
@@ -52,7 +48,7 @@ export default function Landing({ onConnect }) {
 
         {/* How it works */}
         <div className="mt-12 w-full max-w-sm">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">HOW IT WORKS</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-4 tracking-widest">HOW IT WORKS</h3>
           <div className="space-y-3">
             {[
               { step: '1', text: 'Connect your Phantom wallet' },

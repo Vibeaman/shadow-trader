@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import LoadingScreen from './components/LoadingScreen';
 import Landing from './components/Landing';
 import Trade from './components/Trade';
 import Holdings from './components/Holdings';
@@ -9,10 +8,20 @@ import BottomNav from './components/BottomNav';
 import './index.css';
 
 function App() {
-  const [isLoading, setIsLoading] = useState(true);
   const [wallet, setWallet] = useState(null);
   const [activeTab, setActiveTab] = useState('trade');
-  const [demoMode, setDemoMode] = useState(true); // Toggle when API key is added
+  const [demoMode, setDemoMode] = useState(true);
+
+  // Hide the HTML preloader when React is ready
+  useEffect(() => {
+    // Small delay to ensure smooth transition
+    const timer = setTimeout(() => {
+      if (window.hidePreloader) {
+        window.hidePreloader();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const connectWallet = async () => {
     try {
@@ -35,11 +44,6 @@ function App() {
     setActiveTab('trade');
   };
 
-  // Show loading screen
-  if (isLoading) {
-    return <LoadingScreen onComplete={() => setIsLoading(false)} />;
-  }
-
   // Show landing if not connected
   if (!wallet) {
     return <Landing onConnect={connectWallet} />;
@@ -50,7 +54,7 @@ function App() {
       {/* Demo Mode Banner */}
       {demoMode && (
         <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2 text-center text-yellow-400 text-xs">
-          Demo Mode - Trades are simulated. Add Vanish API key for live trading.
+          Demo Mode - Trades are simulated
         </div>
       )}
 
