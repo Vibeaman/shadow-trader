@@ -212,18 +212,20 @@ export default function Holdings({ wallet, demoMode }) {
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <button 
-          onClick={() => { setShowDeposit(true); setShowWithdraw(false); }}
-          className="py-3 rounded-xl bg-green-500/20 text-green-400 font-medium hover:bg-green-500/30 transition-colors"
-        >
-          Deposit
-        </button>
+      <div className="grid grid-cols-2 gap-3 mb-6 p-3 rounded-xl" style={{ backgroundColor: '#0C0D10' }}>
         <button 
           onClick={() => { setShowWithdraw(true); setShowDeposit(false); }}
-          className="py-3 rounded-xl bg-purple-500/20 text-purple-400 font-medium hover:bg-purple-500/30 transition-colors"
+          className="h-12 rounded-xl text-white font-medium transition-all hover:opacity-90"
+          style={{ backgroundColor: 'rgba(42, 45, 53, 0.8)' }}
         >
           Withdraw
+        </button>
+        <button 
+          onClick={() => { setShowDeposit(true); setShowWithdraw(false); }}
+          className="h-12 rounded-xl text-white font-medium transition-all hover:opacity-90"
+          style={{ backgroundColor: '#214D2B' }}
+        >
+          Deposit
         </button>
       </div>
 
