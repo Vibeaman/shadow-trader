@@ -1,16 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import Landing from './components/Landing';
 import Trade from './components/Trade';
 import Holdings from './components/Holdings';
 import AIPanel from './components/AIPanel';
 import Settings from './components/Settings';
 import BottomNav from './components/BottomNav';
+import { useDemoBalance } from './hooks/useDemoBalance';
 import './index.css';
+
+// Context for demo balance
+export const DemoBalanceContext = createContext(null);
 
 function App() {
   const [wallet, setWallet] = useState(null);
   const [activeTab, setActiveTab] = useState('trade');
   const [demoMode, setDemoMode] = useState(true);
+  const demoBalance = useDemoBalance();
 
   // Hide the HTML preloader when React is ready
   useEffect(() => {
@@ -59,19 +64,21 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="max-w-lg mx-auto">
-        {activeTab === 'trade' && <Trade wallet={wallet} demoMode={demoMode} />}
-        {activeTab === 'holdings' && <Holdings wallet={wallet} demoMode={demoMode} />}
-        {activeTab === 'ai' && <AIPanel wallet={wallet} demoMode={demoMode} />}
-        {activeTab === 'settings' && (
-          <Settings 
-            wallet={wallet} 
-            onDisconnect={disconnectWallet}
-            demoMode={demoMode}
-            setDemoMode={setDemoMode}
-          />
-        )}
-      </main>
+      <DemoBalanceContext.Provider value={demoBalance}>
+        <main className="max-w-lg mx-auto">
+          {activeTab === 'trade' && <Trade wallet={wallet} demoMode={demoMode} />}
+          {activeTab === 'holdings' && <Holdings wallet={wallet} demoMode={demoMode} />}
+          {activeTab === 'ai' && <AIPanel wallet={wallet} demoMode={demoMode} />}
+          {activeTab === 'settings' && (
+            <Settings 
+              wallet={wallet} 
+              onDisconnect={disconnectWallet}
+              demoMode={demoMode}
+              setDemoMode={setDemoMode}
+            />
+          )}
+        </main>
+      </DemoBalanceContext.Provider>
 
       {/* Bottom Navigation */}
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />

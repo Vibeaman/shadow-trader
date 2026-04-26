@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { api } from '../config/api';
 import { createTradeSignature } from '../utils/vanishSigning';
+import { DemoBalanceContext } from '../App';
 
 export default function SwapModal({ token, wallet, demoMode, onClose }) {
   const [amount, setAmount] = useState('');
   const [swapDirection, setSwapDirection] = useState('buy'); // buy or sell
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const demoBalance = useContext(DemoBalanceContext);
 
   const handleSwap = async () => {
     if (!amount) return;
@@ -16,13 +18,25 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
 
     try {
       if (demoMode) {
-        // Simulate swap in demo mode
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setResult({
-          success: true,
-          message: `Demo: Would ${swapDirection} ${amount} SOL worth of ${token.symbol} privately`,
-          txId: 'demo_' + Math.random().toString(36).slice(2, 10),
-        });
+        // Simulate swap in demo mode with real balance updates
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const fromSymbol = swapDirection === 'buy' ? 'SOL' : token.symbol;
+        const toSymbol = swapDirection === 'buy' ? token.symbol : 'SOL';
+        const swapResult = demoBalance.executeSwap(fromSymbol, toSymbol, parseFloat(amount));
+        
+        if (swapResult.success) {
+          setResult({
+            success: true,
+            message: `Swapped ${swapResult.fromAmount.toFixed(4)} ${fromSymbol} → ${swapResult.toAmount.toFixed(4)} ${toSymbol} privately! 👻`,
+            txId: swapResult.txId,
+          });
+        } else {
+          setResult({
+            success: false,
+            message: swapResult.error,
+          });
+        }
       } else {
         // Real swap via Vanish
         const sourceToken = swapDirection === 'buy' 

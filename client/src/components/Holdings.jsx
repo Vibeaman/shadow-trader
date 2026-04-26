@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { api } from '../config/api';
 import { createReadSignature } from '../utils/vanishSigning';
+import { DemoBalanceContext } from '../App';
 
 // Mock holdings data
 const MOCK_HOLDINGS = [
@@ -9,14 +10,18 @@ const MOCK_HOLDINGS = [
 ];
 
 export default function Holdings({ wallet, demoMode }) {
-  const [holdings, setHoldings] = useState(demoMode ? MOCK_HOLDINGS : []);
+  const [holdings, setHoldings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const demoBalance = useContext(DemoBalanceContext);
 
-  const totalValue = holdings.reduce((sum, h) => sum + h.value, 0);
+  const totalValue = demoMode 
+    ? demoBalance.getTotalValue() 
+    : holdings.reduce((sum, h) => sum + h.value, 0);
 
   const fetchHoldings = async () => {
     if (demoMode) {
-      setHoldings(MOCK_HOLDINGS);
+      // Use demo balance hook
+      setHoldings(demoBalance.getHoldings());
       return;
     }
 

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { api, API_BASE } from '../config/api';
+import { DemoBalanceContext } from '../App';
 
 const SUGGESTIONS = [
   "Buy 0.5 SOL worth of JUP",
@@ -21,6 +22,7 @@ export default function AIPanel({ wallet, demoMode }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const demoBalance = useContext(DemoBalanceContext);
 
   // Load chat history from localStorage
   useEffect(() => {
@@ -45,6 +47,20 @@ export default function AIPanel({ wallet, demoMode }) {
     // First try the backend (which has proper API keys)
     try {
       const backendRes = await api.command(userMessage, wallet);
+      
+      // Handle immediate trade commands in demo mode
+      if (demoMode && backendRes.type === 'trade' && backendRes.action) {
+        const fromSymbol = backendRes.sourceToken || 'SOL';
+        const toSymbol = backendRes.targetToken || 'USDC';
+        const amount = parseFloat(backendRes.amount) || 1;
+        
+        const swapResult = demoBalance.executeSwap(fromSymbol, toSymbol, amount);
+        if (swapResult.success) {
+          return `Done! Swapped ${swapResult.fromAmount.toFixed(4)} ${fromSymbol} for ${swapResult.toAmount.toFixed(4)} ${toSymbol} privately. Check your holdings! 👻`;
+        } else {
+          return `Couldn't complete the trade: ${swapResult.error}`;
+        }
+      }
       
       if (backendRes.response) {
         return backendRes.response;
