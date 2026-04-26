@@ -12,6 +12,7 @@ const SUGGESTIONS = [
 ];
 
 export default function AIPanel({ wallet, demoMode }) {
+  const shortWallet = wallet ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : '';
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -82,8 +83,8 @@ export default function AIPanel({ wallet, demoMode }) {
           <span className="text-lg font-light tracking-[0.2em] text-white">GHOST</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-xs text-gray-400">AI Active</span>
+          <div className="w-2 h-2 rounded-full bg-green-400" />
+          <span className="text-xs text-gray-400">{shortWallet}</span>
         </div>
       </div>
 
