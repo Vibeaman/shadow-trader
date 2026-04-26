@@ -23,18 +23,28 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
         
         const fromSymbol = swapDirection === 'buy' ? 'SOL' : token.symbol;
         const toSymbol = swapDirection === 'buy' ? token.symbol : 'SOL';
-        const swapResult = demoBalance.executeSwap(fromSymbol, toSymbol, parseFloat(amount));
         
-        if (swapResult.success) {
+        if (demoBalance) {
+          const swapResult = demoBalance.executeSwap(fromSymbol, toSymbol, parseFloat(amount));
+          
+          if (swapResult.success) {
+            setResult({
+              success: true,
+              message: `Swapped ${swapResult.fromAmount.toFixed(4)} ${fromSymbol} → ${swapResult.toAmount.toFixed(4)} ${toSymbol} privately! 👻`,
+              txId: swapResult.txId,
+            });
+          } else {
+            setResult({
+              success: false,
+              message: swapResult.error,
+            });
+          }
+        } else {
+          // Fallback if context not available
           setResult({
             success: true,
-            message: `Swapped ${swapResult.fromAmount.toFixed(4)} ${fromSymbol} → ${swapResult.toAmount.toFixed(4)} ${toSymbol} privately! 👻`,
-            txId: swapResult.txId,
-          });
-        } else {
-          setResult({
-            success: false,
-            message: swapResult.error,
+            message: `Demo: Would ${swapDirection} ${amount} SOL worth of ${token.symbol} privately`,
+            txId: 'demo_' + Math.random().toString(36).slice(2, 10),
           });
         }
       } else {

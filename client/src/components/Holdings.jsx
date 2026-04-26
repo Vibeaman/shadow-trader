@@ -14,14 +14,20 @@ export default function Holdings({ wallet, demoMode }) {
   const [loading, setLoading] = useState(false);
   const demoBalance = useContext(DemoBalanceContext);
 
-  const totalValue = demoMode 
+  const totalValue = demoMode && demoBalance
     ? demoBalance.getTotalValue() 
     : holdings.reduce((sum, h) => sum + h.value, 0);
 
   const fetchHoldings = async () => {
-    if (demoMode) {
+    if (demoMode && demoBalance) {
       // Use demo balance hook
       setHoldings(demoBalance.getHoldings());
+      return;
+    }
+    
+    if (demoMode && !demoBalance) {
+      // Fallback if context not available
+      setHoldings(MOCK_HOLDINGS);
       return;
     }
 

@@ -49,7 +49,7 @@ export default function AIPanel({ wallet, demoMode }) {
       const backendRes = await api.command(userMessage, wallet);
       
       // Handle immediate trade commands in demo mode
-      if (demoMode && backendRes.type === 'trade' && backendRes.action) {
+      if (demoMode && demoBalance && backendRes.type === 'trade' && backendRes.action) {
         const fromSymbol = backendRes.sourceToken || 'SOL';
         const toSymbol = backendRes.targetToken || 'USDC';
         const amount = parseFloat(backendRes.amount) || 1;
