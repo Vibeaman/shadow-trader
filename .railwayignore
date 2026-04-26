@@ -1,0 +1,4 @@
+# Ignore frontend for railway (backend only)
+client/
+*.md
+.git/

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import SwapModal from './SwapModal';
+import { api } from '../config/api';
 
 // Mock token data - will be replaced with real API calls
 const MOCK_TOKENS = [
@@ -21,6 +22,35 @@ export default function Trade({ wallet, demoMode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedToken, setSelectedToken] = useState(null);
   const [showSwapModal, setShowSwapModal] = useState(false);
+
+  // Fetch live prices from backend
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        const data = await api.getPrices();
+        if (data.success && data.prices) {
+          // Update mock tokens with live prices
+          setTokens(prev => prev.map(token => {
+            const livePrice = data.prices[token.symbol];
+            if (livePrice) {
+              return {
+                ...token,
+                price: livePrice.price,
+                change: livePrice.change5m || token.change,
+              };
+            }
+            return token;
+          }));
+        }
+      } catch (error) {
+        console.log('Using mock prices (backend unavailable)');
+      }
+    };
+
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 10000); // Update every 10s
+    return () => clearInterval(interval);
+  }, []);
 
   // Filter tokens
   const filteredTokens = tokens.filter(token => {

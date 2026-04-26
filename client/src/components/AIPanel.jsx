@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api, API_BASE } from '../config/api';
 
 const SUGGESTIONS = [
   "Buy 0.5 SOL worth of JUP",
@@ -11,7 +12,9 @@ const SUGGESTIONS = [
   "Set alert when WIF pumps 10%",
 ];
 
-const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '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';
+// OpenRouter key - only used as fallback if backend is down
+// In production, AI calls should go through the backend
+const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
 export default function AIPanel({ wallet, demoMode }) {
   const shortWallet = wallet ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : '';
@@ -39,6 +42,27 @@ export default function AIPanel({ wallet, demoMode }) {
   }, [messages]);
 
   const callAI = async (userMessage) => {
+    // First try the backend (which has proper API keys)
+    try {
+      const backendRes = await api.command(userMessage, wallet);
+      
+      if (backendRes.response) {
+        return backendRes.response;
+      }
+      
+      // If backend returned a strategy result
+      if (backendRes.strategyCreated) {
+        return `Got it! I've set up your strategy. I'll monitor prices and execute privately when conditions are met. 👻`;
+      }
+    } catch (backendError) {
+      console.log('Backend unavailable, falling back to direct AI call');
+    }
+
+    // Fallback: direct OpenRouter call (only if backend is down)
+    if (!OPENROUTER_KEY) {
+      return "I can't connect to my brain right now. Make sure the backend server is running!";
+    }
+
     const systemPrompt = `You are Ghost, a friendly AI assistant for a private trading bot on Solana. You help users:
 - Execute trades privately (via Vanish protocol)
 - Set up automated trading strategies  
@@ -49,18 +73,9 @@ Keep responses SHORT (1-3 sentences max). Be helpful and conversational. Use emo
 
 Available tokens: SOL, USDC, USDT, JUP, BONK, WIF, RAY, ORCA
 
-Current approximate prices:
-- SOL: ~$148
-- JUP: ~$0.89  
-- BONK: ~$0.0000234
-- WIF: ~$2.34
-- RAY: ~$5.67
-- ORCA: ~$4.12
-
 When users want to trade:
 - Confirm what they want to do
 - Mention it will execute privately via Vanish
-- In demo mode, explain it's simulated
 
 When users set up strategies (like "buy when X drops Y%"):
 - Confirm the strategy is set up

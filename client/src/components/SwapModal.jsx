@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { api } from '../config/api';
 
 export default function SwapModal({ token, wallet, demoMode, onClose }) {
   const [amount, setAmount] = useState('');
@@ -23,22 +24,17 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
         });
       } else {
         // Real swap via API
-        const res = await fetch('/api/trade', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userAddress: wallet,
-            sourceToken: swapDirection === 'buy' 
-              ? 'So11111111111111111111111111111111111111112' 
-              : token.address,
-            targetToken: swapDirection === 'buy' 
-              ? token.address 
-              : 'So11111111111111111111111111111111111111112',
-            amount: (parseFloat(amount) * 1e9).toString(),
-            // Note: In production, signature would come from wallet
-          }),
+        const data = await api.trade({
+          userAddress: wallet,
+          sourceToken: swapDirection === 'buy' 
+            ? 'So11111111111111111111111111111111111111112' 
+            : token.address,
+          targetToken: swapDirection === 'buy' 
+            ? token.address 
+            : 'So11111111111111111111111111111111111111112',
+          amount: (parseFloat(amount) * 1e9).toString(),
+          // Note: In production, signature would come from wallet
         });
-        const data = await res.json();
         setResult({
           success: data.success,
           message: data.success 

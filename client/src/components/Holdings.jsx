@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api } from '../config/api';
 
 // Mock holdings data
 const MOCK_HOLDINGS = [
@@ -21,8 +22,7 @@ export default function Holdings({ wallet, demoMode }) {
     setLoading(true);
     try {
       // Real API call would go here
-      const res = await fetch(`/api/balance?userAddress=${wallet}`);
-      const data = await res.json();
+      const data = await api.getBalance(wallet, '', '');
       // Transform data...
     } catch (error) {
       console.error('Failed to fetch holdings:', error);
