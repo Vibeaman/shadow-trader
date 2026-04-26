@@ -1,201 +1,182 @@
 /**
  * AI Agent for parsing natural language trading commands
- * Now supports both immediate trades AND automated strategies
+ * Uses OpenRouter for AI (works with multiple models)
  */
 
-import OpenAI from 'openai';
 import { TOKENS } from './vanish.js';
 
 export class AIAgent {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    this.apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+    this.baseUrl = process.env.OPENROUTER_API_KEY 
+      ? 'https://openrouter.ai/api/v1'
+      : 'https://api.openai.com/v1';
   }
 
   /**
    * Parse natural language command into trade or strategy parameters
-   * Examples:
-   * Immediate: "Buy 100 USDC worth of SOL"
-   * Strategy: "Buy SOL when price drops 5%"
    */
   async parseCommand(command) {
-    const systemPrompt = `You are a trading command parser for a privacy-focused Solana trading bot. Parse the user's trading intent into structured parameters.
+    const systemPrompt = `You are a trading command parser for Ghost, a privacy-focused Solana trading bot. Parse the user's trading intent into structured parameters.
 
 Available tokens: SOL, USDC, USDT, JUP, BONK, WIF, RAY, ORCA
 
 Determine if this is:
 1. An IMMEDIATE trade (execute now)
 2. A STRATEGY/CONDITIONAL trade (execute when conditions are met)
+3. A QUESTION (asking about prices, info, etc.)
 
 Return JSON with these fields:
 
 For IMMEDIATE trades:
 {
-  "isStrategy": false,
+  "type": "trade",
   "action": "swap" | "buy" | "sell",
   "sourceToken": "token being sold",
   "targetToken": "token being bought", 
-  "amount": "amount in base units",
-  "amountType": "exact" | "all" | "percentage",
+  "amount": "amount in readable format",
   "confidence": 0-1,
-  "explanation": "what you understood"
+  "response": "friendly confirmation message"
 }
 
 For STRATEGY/CONDITIONAL trades:
 {
-  "isStrategy": true,
-  "action": "buy" | "sell" | "swap",
+  "type": "strategy",
+  "action": "buy" | "sell",
   "sourceToken": "token to sell when triggered",
   "targetToken": "token to buy when triggered",
-  "amount": "amount in base units",
-  "amountType": "exact" | "all" | "percentage",
+  "amount": "amount",
   "condition": "price_drop_percent" | "price_rise_percent" | "price_below" | "price_above",
-  "conditionValue": number (percentage or price),
-  "triggerToken": "token to monitor (usually targetToken)",
-  "oneTime": true | false (execute once or repeatedly),
+  "conditionValue": number,
+  "triggerToken": "token to monitor",
   "confidence": 0-1,
-  "explanation": "what you understood",
-  "name": "short strategy name"
+  "response": "friendly confirmation that strategy is set up"
 }
 
-EXAMPLES:
-
-"Buy 100 USDC worth of SOL" -> immediate trade
+For QUESTIONS:
 {
-  "isStrategy": false,
-  "action": "swap",
-  "sourceToken": "USDC",
-  "targetToken": "SOL",
-  "amount": "100000000",
-  "amountType": "exact",
-  "confidence": 0.95,
-  "explanation": "Swap 100 USDC for SOL immediately"
+  "type": "question",
+  "topic": "price" | "info" | "help" | "other",
+  "tokens": ["tokens mentioned"],
+  "response": "helpful answer"
 }
 
-"Buy SOL when it drops 5%" -> strategy
+For UNCLEAR requests:
 {
-  "isStrategy": true,
-  "action": "buy",
-  "sourceToken": "USDC",
-  "targetToken": "SOL",
-  "amount": "10000000",
-  "amountType": "exact",
-  "condition": "price_drop_percent",
-  "conditionValue": 5,
-  "triggerToken": "SOL",
-  "oneTime": true,
-  "confidence": 0.9,
-  "explanation": "Buy SOL when its price drops 5% from current",
-  "name": "Buy SOL on 5% dip"
+  "type": "unclear",
+  "response": "ask for clarification or suggest what they can do"
 }
 
-"Sell my JUP if it goes above $1" -> strategy
-{
-  "isStrategy": true,
-  "action": "sell",
-  "sourceToken": "JUP",
-  "targetToken": "USDC",
-  "amount": "all",
-  "amountType": "all",
-  "condition": "price_above",
-  "conditionValue": 1,
-  "triggerToken": "JUP",
-  "oneTime": true,
-  "confidence": 0.85,
-  "explanation": "Sell all JUP when price exceeds $1",
-  "name": "Take profit on JUP at $1"
-}
+Be conversational and helpful in your responses. Keep them short but friendly.`;
 
-"DCA into SOL every time it dips 3%" -> repeating strategy
-{
-  "isStrategy": true,
-  "action": "buy",
-  "sourceToken": "USDC",
-  "targetToken": "SOL",
-  "amount": "5000000",
-  "amountType": "exact",
-  "condition": "price_drop_percent",
-  "conditionValue": 3,
-  "triggerToken": "SOL",
-  "oneTime": false,
-  "confidence": 0.88,
-  "explanation": "Buy SOL every time it drops 3%",
-  "name": "DCA on SOL dips"
-}
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+          ...(process.env.OPENROUTER_API_KEY && {
+            'HTTP-Referer': 'https://ghost.trade',
+            'X-Title': 'Ghost Trading'
+          })
+        },
+        body: JSON.stringify({
+          model: process.env.OPENROUTER_API_KEY ? 'openai/gpt-4o-mini' : 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: command },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+        }),
+      });
 
-Keywords that indicate a STRATEGY:
-- "when", "if", "whenever", "every time"
-- "drops", "falls", "dips", "goes down"
-- "rises", "goes up", "pumps", "moons"
-- "above", "below", "reaches"
-- "alert me", "notify me"
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('[AIAgent] API error:', data.error);
+        return {
+          type: 'error',
+          response: "Sorry, I'm having trouble understanding that. Try something like 'Buy SOL when it drops 5%'"
+        };
+      }
 
-If uncertain, default to immediate trade with lower confidence.
-If the command is unclear, return action: "unknown".`;
+      const parsed = JSON.parse(data.choices[0].message.content);
 
-    const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: command },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-    });
+      // Map token names to addresses
+      if (parsed.sourceToken && TOKENS[parsed.sourceToken]) {
+        parsed.sourceTokenAddress = TOKENS[parsed.sourceToken];
+      }
+      if (parsed.targetToken && TOKENS[parsed.targetToken]) {
+        parsed.targetTokenAddress = TOKENS[parsed.targetToken];
+      }
+      if (parsed.triggerToken && TOKENS[parsed.triggerToken]) {
+        parsed.triggerTokenAddress = TOKENS[parsed.triggerToken];
+      }
 
-    const parsed = JSON.parse(response.choices[0].message.content);
-
-    // Map token names to addresses
-    if (parsed.sourceToken && TOKENS[parsed.sourceToken]) {
-      parsed.sourceTokenAddress = TOKENS[parsed.sourceToken];
+      return parsed;
+    } catch (error) {
+      console.error('[AIAgent] Parse error:', error);
+      return {
+        type: 'error',
+        response: "Something went wrong. Please try again."
+      };
     }
-    if (parsed.targetToken && TOKENS[parsed.targetToken]) {
-      parsed.targetTokenAddress = TOKENS[parsed.targetToken];
-    }
-    if (parsed.triggerToken && TOKENS[parsed.triggerToken]) {
-      parsed.triggerTokenAddress = TOKENS[parsed.triggerToken];
-    }
-
-    return parsed;
   }
 
   /**
-   * Generate a human-readable summary of a strategy
+   * Generate a conversational response
    */
-  summarizeStrategy(strategy) {
-    const { conditions, actions, oneTime } = strategy;
-    
-    let summary = '';
-    
-    // Describe conditions
-    if (conditions.length > 0) {
-      const cond = conditions[0];
-      switch (cond.type) {
-        case 'price_drop_percent':
-          summary += `When ${cond.token} drops ${cond.value}%`;
-          break;
-        case 'price_rise_percent':
-          summary += `When ${cond.token} rises ${cond.value}%`;
-          break;
-        case 'price_above':
-          summary += `When ${cond.token} goes above $${cond.value}`;
-          break;
-        case 'price_below':
-          summary += `When ${cond.token} goes below $${cond.value}`;
-          break;
+  async chat(message, context = []) {
+    const systemPrompt = `You are Ghost, a friendly AI assistant for a private trading bot on Solana. You help users:
+- Execute trades privately (via Vanish protocol)
+- Set up automated trading strategies
+- Check token prices
+- Understand how private trading works
+
+Keep responses SHORT and conversational. Use emojis occasionally. Be helpful but not verbose.
+
+Available tokens: SOL, USDC, USDT, JUP, BONK, WIF, RAY, ORCA
+
+Current prices (approximate):
+- SOL: ~$148
+- JUP: ~$0.89
+- BONK: ~$0.0000234
+- WIF: ~$2.34`;
+
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+          ...(process.env.OPENROUTER_API_KEY && {
+            'HTTP-Referer': 'https://ghost.trade',
+            'X-Title': 'Ghost Trading'
+          })
+        },
+        body: JSON.stringify({
+          model: process.env.OPENROUTER_API_KEY ? 'openai/gpt-4o-mini' : 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...context,
+            { role: 'user', content: message },
+          ],
+          temperature: 0.7,
+          max_tokens: 200,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        return "Sorry, I'm having trouble right now. Try again in a moment.";
       }
+
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error('[AIAgent] Chat error:', error);
+      return "Something went wrong. Please try again.";
     }
-    
-    // Describe actions
-    if (actions.length > 0) {
-      const act = actions[0];
-      summary += `, ${act.type} ${act.fromToken} → ${act.toToken}`;
-    }
-    
-    // One-time or repeating
-    summary += oneTime ? ' (once)' : ' (repeating)';
-    
-    return summary;
   }
 }
