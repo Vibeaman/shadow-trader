@@ -10,13 +10,19 @@ const MOCK_HOLDINGS = [
 ];
 
 export default function Holdings({ wallet, demoMode }) {
-  const [holdings, setHoldings] = useState([]);
+  const [holdings, setHoldings] = useState(MOCK_HOLDINGS);
   const [loading, setLoading] = useState(false);
   const demoBalance = useContext(DemoBalanceContext);
 
-  const totalValue = demoMode && demoBalance
-    ? demoBalance.getTotalValue() 
-    : holdings.reduce((sum, h) => sum + h.value, 0);
+  // Calculate total value safely
+  let totalValue = 0;
+  try {
+    totalValue = demoMode && demoBalance
+      ? demoBalance.getTotalValue() 
+      : holdings.reduce((sum, h) => sum + (h.value || 0), 0);
+  } catch (e) {
+    totalValue = holdings.reduce((sum, h) => sum + (h.value || 0), 0);
+  }
 
   const fetchHoldings = async () => {
     if (demoMode && demoBalance) {
@@ -66,7 +72,7 @@ export default function Holdings({ wallet, demoMode }) {
 
   useEffect(() => {
     fetchHoldings();
-  }, [wallet, demoMode]);
+  }, [wallet, demoMode, demoBalance]);
 
   // Token helpers
   const getTokenSymbol = (address) => {
