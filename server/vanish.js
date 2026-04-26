@@ -4,7 +4,8 @@
  * Docs: https://core.vanish.trade
  */
 
-import nacl from 'tweetnacl';
+import pkg from 'tweetnacl';
+const nacl = pkg;
 
 const VANISH_URL = 'https://core-api.vanish.trade';
 const JUPITER_URL = 'https://quote-api.jup.ag/v6';
