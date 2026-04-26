@@ -1,6 +1,4 @@
 import { useState, useEffect, useContext } from 'react';
-import { api } from '../config/api';
-import { createReadSignature } from '../utils/vanishSigning';
 import { DemoBalanceContext } from '../App';
 
 // Mock holdings data
@@ -10,99 +8,22 @@ const MOCK_HOLDINGS = [
 ];
 
 export default function Holdings({ wallet, demoMode }) {
-  const [holdings, setHoldings] = useState(MOCK_HOLDINGS);
   const [loading, setLoading] = useState(false);
   const demoBalance = useContext(DemoBalanceContext);
 
-  // Calculate total value safely
-  let totalValue = 0;
-  try {
-    totalValue = demoMode && demoBalance
-      ? demoBalance.getTotalValue() 
-      : holdings.reduce((sum, h) => sum + (h.value || 0), 0);
-  } catch (e) {
-    totalValue = holdings.reduce((sum, h) => sum + (h.value || 0), 0);
-  }
+  // Get holdings - either from demo context or mock
+  const holdings = demoMode && demoBalance 
+    ? demoBalance.getHoldings() 
+    : MOCK_HOLDINGS;
 
-  const fetchHoldings = async () => {
-    if (demoMode && demoBalance) {
-      // Use demo balance hook
-      setHoldings(demoBalance.getHoldings());
-      return;
-    }
-    
-    if (demoMode && !demoBalance) {
-      // Fallback if context not available
-      setHoldings(MOCK_HOLDINGS);
-      return;
-    }
+  // Calculate total value
+  const totalValue = demoMode && demoBalance
+    ? demoBalance.getTotalValue()
+    : holdings.reduce((sum, h) => sum + (h.value || 0), 0);
 
+  const handleRefresh = () => {
     setLoading(true);
-    try {
-      // Get signature for balance request
-      const { signature, timestamp } = await createReadSignature();
-      
-      // Fetch real Vanish balances
-      const data = await api.getBalance(wallet, signature, timestamp);
-      
-      if (Array.isArray(data)) {
-        // Transform Vanish balance data to our format
-        const transformed = data.map(item => {
-          const symbol = getTokenSymbol(item.token_address);
-          const balance = parseFloat(item.balance) / 1e9; // Convert from lamports
-          const price = getTokenPrice(symbol);
-          return {
-            symbol,
-            name: getTokenName(symbol),
-            balance,
-            value: balance * price,
-            change: 0,
-            image: getTokenImage(item.token_address),
-          };
-        }).filter(h => h.balance > 0);
-        setHoldings(transformed);
-      }
-    } catch (error) {
-      console.error('Failed to fetch holdings:', error);
-      // Fall back to showing empty if no Vanish balance
-      setHoldings([]);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchHoldings();
-  }, [wallet, demoMode, demoBalance]);
-
-  // Token helpers
-  const getTokenSymbol = (address) => {
-    const tokens = {
-      '11111111111111111111111111111111': 'SOL',
-      'So11111111111111111111111111111111111111112': 'SOL',
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
-      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
-    };
-    return tokens[address] || 'UNKNOWN';
-  };
-
-  const getTokenName = (symbol) => {
-    const names = { SOL: 'Solana', USDC: 'USD Coin', USDT: 'Tether' };
-    return names[symbol] || symbol;
-  };
-
-  const getTokenPrice = (symbol) => {
-    // TODO: Get from price monitor
-    const prices = { SOL: 148, USDC: 1, USDT: 1 };
-    return prices[symbol] || 0;
-  };
-
-  const getTokenImage = (address) => {
-    const images = {
-      '11111111111111111111111111111111': 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
-      'So11111111111111111111111111111111111111112': 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
-    };
-    return images[address] || '';
+    setTimeout(() => setLoading(false), 500);
   };
 
   return (
@@ -111,7 +32,7 @@ export default function Holdings({ wallet, demoMode }) {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold">Holdings</h1>
         <button
-          onClick={fetchHoldings}
+          onClick={handleRefresh}
           className="p-2 rounded-lg bg-[#1f1f2e] hover:bg-[#2a2a3a] transition-colors"
         >
           <svg className={`w-5 h-5 text-gray-400 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,7 +44,7 @@ export default function Holdings({ wallet, demoMode }) {
       {/* Total Value Card */}
       <div className="card p-6 mb-6 text-center">
         <p className="text-gray-400 text-sm mb-1">Vanish Balance</p>
-        <h2 className="text-4xl font-bold mb-2">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h2>
+        <h2 className="text-4xl font-bold mb-2">${(totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</h2>
         <div className="flex items-center justify-center gap-2">
           <svg className="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -146,44 +67,44 @@ export default function Holdings({ wallet, demoMode }) {
       <div className="mb-4">
         <h3 className="text-sm font-medium text-gray-400 mb-3">ASSETS</h3>
         <div className="space-y-2">
-          {holdings.map((holding) => (
-            <div key={holding.symbol} className="card p-4 flex items-center gap-3">
-              <img
-                src={holding.image}
-                alt={holding.symbol}
-                className="w-10 h-10 rounded-full bg-[#1f1f2e]"
-                onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${holding.symbol}&background=1f1f2e&color=fff&size=40`;
-                }}
-              />
-              <div className="flex-1">
-                <div className="font-medium">{holding.symbol}</div>
-                <div className="text-sm text-gray-400">{holding.balance.toLocaleString()} {holding.symbol}</div>
+          {holdings && holdings.length > 0 ? (
+            holdings.map((holding, index) => (
+              <div key={holding.symbol || index} className="card p-4 flex items-center gap-3">
+                <img
+                  src={holding.image || `https://ui-avatars.com/api/?name=${holding.symbol}&background=1f1f2e&color=fff&size=40`}
+                  alt={holding.symbol}
+                  className="w-10 h-10 rounded-full bg-[#1f1f2e]"
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${holding.symbol}&background=1f1f2e&color=fff&size=40`;
+                  }}
+                />
+                <div className="flex-1">
+                  <div className="font-medium">{holding.symbol}</div>
+                  <div className="text-sm text-gray-400">{(holding.balance || 0).toLocaleString()} {holding.symbol}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-medium">${(holding.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                  {holding.change && holding.change !== 0 && (
+                    <div className={`text-sm ${holding.change >= 0 ? 'price-up' : 'price-down'}`}>
+                      {holding.change >= 0 ? '+' : ''}{parseFloat(holding.change).toFixed(1)}%
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="text-right">
-                <div className="font-medium">${holding.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                {holding.change !== 0 && (
-                  <div className={`text-sm ${holding.change >= 0 ? 'price-up' : 'price-down'}`}>
-                    {holding.change >= 0 ? '+' : ''}{holding.change.toFixed(1)}%
-                  </div>
-                )}
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#1f1f2e] flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
               </div>
+              <p className="text-gray-400 mb-4">No holdings yet</p>
+              <p className="text-sm text-gray-500">Deposit SOL or USDC to start trading privately</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
-
-      {holdings.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#1f1f2e] flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <p className="text-gray-400 mb-4">No holdings yet</p>
-          <p className="text-sm text-gray-500">Deposit SOL or USDC to start trading privately</p>
-        </div>
-      )}
 
       {/* Recent Activity */}
       <div className="mt-6">
