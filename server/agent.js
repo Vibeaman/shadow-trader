@@ -11,6 +11,12 @@ export class AIAgent {
     this.baseUrl = process.env.OPENROUTER_API_KEY 
       ? 'https://openrouter.ai/api/v1'
       : 'https://api.openai.com/v1';
+    
+    console.log('[AIAgent] Initialized with:', {
+      hasKey: !!this.apiKey,
+      keyPrefix: this.apiKey ? this.apiKey.slice(0, 15) + '...' : 'none',
+      baseUrl: this.baseUrl
+    });
   }
 
   /**
@@ -94,7 +100,16 @@ Be conversational and helpful in your responses. Keep them short but friendly.`;
       const data = await response.json();
       
       if (data.error) {
-        console.error('[AIAgent] API error:', data.error);
+        console.error('[AIAgent] API error:', JSON.stringify(data.error));
+        return {
+          type: 'error',
+          response: "Sorry, I'm having trouble understanding that. Try something like 'Buy SOL when it drops 5%'",
+          debug: data.error
+        };
+      }
+
+      if (!data.choices || !data.choices[0]) {
+        console.error('[AIAgent] No choices in response:', JSON.stringify(data));
         return {
           type: 'error',
           response: "Sorry, I'm having trouble understanding that. Try something like 'Buy SOL when it drops 5%'"
