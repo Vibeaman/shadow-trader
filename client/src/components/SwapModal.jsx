@@ -2,6 +2,7 @@ import { useState, useContext } from 'react';
 import { api } from '../config/api';
 import { createTradeSignature } from '../utils/vanishSigning';
 import { DemoBalanceContext } from '../App';
+import { useSettings } from '../hooks/useSettings';
 
 export default function SwapModal({ token, wallet, demoMode, onClose }) {
   const [amount, setAmount] = useState('');
@@ -9,6 +10,7 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const demoBalance = useContext(DemoBalanceContext);
+  const { settings, getTradeParams } = useSettings();
 
   const handleSwap = async () => {
     if (!amount) return;
@@ -40,7 +42,6 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
             });
           }
         } else {
-          // Fallback if context not available
           setResult({
             success: true,
             message: `Demo: Would ${swapDirection} ${amount} SOL worth of ${token.symbol} privately`,
@@ -48,6 +49,19 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
           });
         }
       } else {
+        // Get trade params from settings
+        const tradeParams = getTradeParams();
+        
+        // Check if Vanish is enabled
+        if (!tradeParams.vanishEnabled) {
+          setResult({
+            success: false,
+            message: 'Vanish is disabled. Enable it in Settings > Privacy to trade privately.',
+          });
+          setLoading(false);
+          return;
+        }
+
         // Real swap via Vanish
         const sourceToken = swapDirection === 'buy' 
           ? '11111111111111111111111111111111' // Native SOL for Vanish
@@ -57,14 +71,15 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
           : '11111111111111111111111111111111';
         const amountLamports = (parseFloat(amount) * 1e9).toString();
 
-        // Get signature from Phantom
-        const { signature, timestamp, loanSol, jitoTip } = await createTradeSignature({
+        // Get signature from Phantom with custom jito tip from settings
+        const { signature, timestamp, loanSol } = await createTradeSignature({
           sourceToken,
           targetToken,
           amount: amountLamports,
+          jitoTip: tradeParams.jitoTip,
         });
 
-        // Execute trade via backend
+        // Execute trade via backend with settings
         const data = await api.trade({
           userAddress: wallet,
           sourceToken,
@@ -73,7 +88,8 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
           userSignature: signature,
           timestamp,
           loanSol,
-          jitoTip,
+          jitoTip: tradeParams.jitoTip,
+          slippageBps: tradeParams.slippageBps,
         });
 
         if (data.error) {
@@ -87,7 +103,11 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
         });
       }
     } catch (error) {
-      setResult({ success: false, message: error.message });
+      if (error.message?.includes('User rejected')) {
+        setResult({ success: false, message: 'Transaction cancelled' });
+      } else {
+        setResult({ success: false, message: error.message });
+      }
     }
 
     setLoading(false);
@@ -98,6 +118,9 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
       ? (parseFloat(amount) / token.price).toFixed(4)
       : (parseFloat(amount) * token.price).toFixed(2)
   ) : '0';
+
+  // Calculate slippage display
+  const slippagePercent = settings?.slippage || '1';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
@@ -201,6 +224,7 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
         <div className="bg-[#0a0a0f] rounded-xl p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-gray-500 text-sm">You receive</span>
+            <span className="text-gray-500 text-sm">Slippage: {slippagePercent}%</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="flex-1 text-2xl font-medium text-gray-400">
@@ -225,8 +249,20 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
-          <span>This trade will be routed privately via Vanish</span>
+          <span>
+            {settings?.vanishEnabled !== false 
+              ? 'This trade will be routed privately via Vanish' 
+              : 'Vanish disabled - enable in Settings for privacy'}
+          </span>
         </div>
+
+        {/* Trade Details */}
+        {!demoMode && settings?.vanishEnabled !== false && (
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-4 px-1">
+            <span>Jito Tip: {settings?.jitoTip || '0.001'} SOL</span>
+            <span>Slippage: {slippagePercent}%</span>
+          </div>
+        )}
 
         {/* Result */}
         {result && (

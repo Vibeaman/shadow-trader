@@ -1,43 +1,11 @@
 import { useState, useEffect } from 'react';
 import { api } from '../config/api';
-
-const SETTINGS_KEY = 'ghost_settings';
-
-const loadSettings = () => {
-  try {
-    const saved = localStorage.getItem(SETTINGS_KEY);
-    return saved ? JSON.parse(saved) : {};
-  } catch {
-    return {};
-  }
-};
+import { useSettings } from '../hooks/useSettings';
 
 export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }) {
   const [activeTab, setActiveTab] = useState('General');
-  const [settings, setSettings] = useState(() => ({
-    // General
-    displayCurrency: 'USD',
-    topBar: true,
-    clipboardBuy: true,
-    walletSync: true,
-    quickBuySync: true,
-    // Privacy
-    vanishEnabled: true,
-    jitoTip: '0.001', // SOL
-    slippage: '1', // percent
-    // AI
-    aiEnabled: true,
-    maxTradeSize: '1', // SOL
-    requireConfirmation: true,
-    ...loadSettings(),
-  }));
+  const { settings, updateSetting } = useSettings();
   const [vaultStatus, setVaultStatus] = useState(null);
-  const [statusLoading, setStatusLoading] = useState(false);
-
-  // Save settings to localStorage
-  useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  }, [settings]);
 
   // Fetch vault status
   useEffect(() => {
@@ -51,10 +19,6 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }
     };
     fetchStatus();
   }, []);
-
-  const updateSetting = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-  };
 
   const tabs = ['General', 'Privacy', 'AI', 'About'];
 

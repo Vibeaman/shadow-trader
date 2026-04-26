@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { api, API_BASE } from '../config/api';
 import { DemoBalanceContext } from '../App';
+import { useSettings } from '../hooks/useSettings';
 
 const SUGGESTIONS = [
   "Buy 0.5 SOL worth of JUP",
@@ -14,7 +15,6 @@ const SUGGESTIONS = [
 ];
 
 // OpenRouter key - only used as fallback if backend is down
-// In production, AI calls should go through the backend
 const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
 export default function AIPanel({ wallet, demoMode }) {
@@ -22,7 +22,9 @@ export default function AIPanel({ wallet, demoMode }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [pendingTrade, setPendingTrade] = useState(null);
   const demoBalance = useContext(DemoBalanceContext);
+  const { settings, checkTradeLimit, getTradeParams } = useSettings();
 
   // Load chat history from localStorage
   useEffect(() => {
@@ -39,24 +41,56 @@ export default function AIPanel({ wallet, demoMode }) {
   // Save chat history to localStorage
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem('ghost_chat_history', JSON.stringify(messages.slice(-50))); // Keep last 50
+      localStorage.setItem('ghost_chat_history', JSON.stringify(messages.slice(-50)));
     }
   }, [messages]);
 
+  // Check if AI is enabled
+  const isAIEnabled = settings?.aiEnabled !== false;
+
+  const executeTrade = async (fromSymbol, toSymbol, amount) => {
+    // Check trade limit
+    const limitCheck = checkTradeLimit(amount);
+    if (!limitCheck.allowed) {
+      return { success: false, error: limitCheck.reason };
+    }
+
+    if (demoMode && demoBalance) {
+      const swapResult = demoBalance.executeSwap(fromSymbol, toSymbol, amount);
+      return swapResult;
+    }
+
+    // Real trade would go here
+    return { success: true, fromAmount: amount, toAmount: amount * 0.99 };
+  };
+
   const callAI = async (userMessage) => {
-    // First try the backend (which has proper API keys)
+    // First try the backend
     try {
       const backendRes = await api.command(userMessage, wallet);
       
-      // Handle immediate trade commands in demo mode
-      if (demoMode && demoBalance && backendRes.type === 'trade' && backendRes.action) {
+      // Handle immediate trade commands
+      if (backendRes.type === 'trade' && backendRes.action) {
         const fromSymbol = backendRes.sourceToken || 'SOL';
         const toSymbol = backendRes.targetToken || 'USDC';
         const amount = parseFloat(backendRes.amount) || 1;
         
-        const swapResult = demoBalance.executeSwap(fromSymbol, toSymbol, amount);
+        // Check max trade size
+        const limitCheck = checkTradeLimit(amount);
+        if (!limitCheck.allowed) {
+          return `Can't execute that trade: ${limitCheck.reason}. You can increase this in Settings > AI.`;
+        }
+
+        // Check if confirmation required
+        if (settings?.requireConfirmation) {
+          setPendingTrade({ fromSymbol, toSymbol, amount, response: backendRes });
+          return `Ready to swap ${amount} ${fromSymbol} for ${toSymbol} privately. Confirm to execute or cancel.`;
+        }
+
+        // Execute immediately
+        const swapResult = await executeTrade(fromSymbol, toSymbol, amount);
         if (swapResult.success) {
-          return `Done! Swapped ${swapResult.fromAmount.toFixed(4)} ${fromSymbol} for ${swapResult.toAmount.toFixed(4)} ${toSymbol} privately. Check your holdings! 👻`;
+          return `Done! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately. Check your holdings! 👻`;
         } else {
           return `Couldn't complete the trade: ${swapResult.error}`;
         }
@@ -66,7 +100,6 @@ export default function AIPanel({ wallet, demoMode }) {
         return backendRes.response;
       }
       
-      // If backend returned a strategy result
       if (backendRes.strategyCreated) {
         return `Got it! I've set up your strategy. I'll monitor prices and execute privately when conditions are met. 👻`;
       }
@@ -74,7 +107,7 @@ export default function AIPanel({ wallet, demoMode }) {
       console.log('Backend unavailable, falling back to direct AI call');
     }
 
-    // Fallback: direct OpenRouter call (only if backend is down)
+    // Fallback: direct OpenRouter call
     if (!OPENROUTER_KEY) {
       return "I can't connect to my brain right now. Make sure the backend server is running!";
     }
@@ -137,6 +170,16 @@ When users set up strategies (like "buy when X drops Y%"):
     const text = command || input;
     if (!text.trim()) return;
 
+    // Check if AI is enabled
+    if (!isAIEnabled) {
+      setMessages(prev => [...prev, 
+        { role: 'user', content: text },
+        { role: 'assistant', content: 'AI trading is currently disabled. Enable it in Settings > AI to use commands.' }
+      ]);
+      setInput('');
+      return;
+    }
+
     // Add user message
     const userMsg = { role: 'user', content: text };
     setMessages(prev => [...prev, userMsg]);
@@ -156,12 +199,45 @@ When users set up strategies (like "buy when X drops Y%"):
     setLoading(false);
   };
 
+  const confirmPendingTrade = async () => {
+    if (!pendingTrade) return;
+
+    setLoading(true);
+    const { fromSymbol, toSymbol, amount } = pendingTrade;
+    
+    const swapResult = await executeTrade(fromSymbol, toSymbol, amount);
+    
+    if (swapResult.success) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Executed! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately. 👻` 
+      }]);
+    } else {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Trade failed: ${swapResult.error}` 
+      }]);
+    }
+
+    setPendingTrade(null);
+    setLoading(false);
+  };
+
+  const cancelPendingTrade = () => {
+    setPendingTrade(null);
+    setMessages(prev => [...prev, { 
+      role: 'assistant', 
+      content: 'Trade cancelled.' 
+    }]);
+  };
+
   const handleSuggestionClick = (suggestion) => {
     handleSubmit(suggestion);
   };
 
   const clearHistory = () => {
     setMessages([]);
+    setPendingTrade(null);
     localStorage.removeItem('ghost_chat_history');
   };
 
@@ -174,6 +250,9 @@ When users set up strategies (like "buy when X drops Y%"):
           <span className="text-lg font-light tracking-[0.2em] text-white">GHOST</span>
         </div>
         <div className="flex items-center gap-3">
+          {!isAIEnabled && (
+            <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded">AI Off</span>
+          )}
           {messages.length > 0 && (
             <button 
               onClick={clearHistory}
@@ -183,29 +262,39 @@ When users set up strategies (like "buy when X drops Y%"):
             </button>
           )}
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-400" />
+            <div className={`w-2 h-2 rounded-full ${isAIEnabled ? 'bg-green-400' : 'bg-yellow-400'}`} />
             <span className="text-xs text-gray-400">{shortWallet}</span>
           </div>
         </div>
       </div>
 
+      {/* AI Disabled Banner */}
+      {!isAIEnabled && (
+        <div className="px-4 py-2 bg-yellow-500/10 border-b border-yellow-500/20 text-center">
+          <span className="text-xs text-yellow-400">AI trading is disabled. Enable in Settings to use commands.</span>
+        </div>
+      )}
+
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
-          /* Suggestions when no messages */
           <div className="space-y-3">
             {SUGGESTIONS.map((suggestion, i) => (
               <button
                 key={i}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="block text-left text-white underline underline-offset-4 decoration-gray-600 hover:decoration-white transition-colors"
+                disabled={!isAIEnabled}
+                className={`block text-left underline underline-offset-4 decoration-gray-600 transition-colors ${
+                  isAIEnabled 
+                    ? 'text-white hover:decoration-white' 
+                    : 'text-gray-500 cursor-not-allowed'
+                }`}
               >
                 {suggestion}
               </button>
             ))}
           </div>
         ) : (
-          /* Chat messages */
           <div className="space-y-4">
             {messages.map((msg, i) => (
               <div key={i} className={`${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
@@ -233,6 +322,28 @@ When users set up strategies (like "buy when X drops Y%"):
         )}
       </div>
 
+      {/* Pending Trade Confirmation */}
+      {pendingTrade && (
+        <div className="px-4 py-3 bg-[#1a1a24] border-t border-[#2a2a3a]">
+          <div className="flex gap-3">
+            <button
+              onClick={confirmPendingTrade}
+              disabled={loading}
+              className="flex-1 py-3 bg-green-500 hover:bg-green-400 text-white font-medium rounded-xl transition-colors disabled:opacity-50"
+            >
+              Confirm Trade
+            </button>
+            <button
+              onClick={cancelPendingTrade}
+              disabled={loading}
+              className="flex-1 py-3 bg-[#2a2a3a] hover:bg-[#3a3a4a] text-gray-300 font-medium rounded-xl transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="p-4 border-t border-[#1f1f2e]">
         <div className="flex items-center gap-3 bg-[#1a1a24] border border-[#2a2a3a] rounded-2xl px-4 py-3">
@@ -241,13 +352,13 @@ When users set up strategies (like "buy when X drops Y%"):
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !loading && handleSubmit()}
-            placeholder="Type a command..."
+            placeholder={isAIEnabled ? "Type a command..." : "AI disabled - enable in Settings"}
             className="flex-1 bg-transparent outline-none text-white placeholder-gray-500"
-            disabled={loading}
+            disabled={loading || !isAIEnabled}
           />
           <button
             onClick={() => handleSubmit()}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || !isAIEnabled}
             className="text-cyan-400 disabled:text-gray-600"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,8 +367,15 @@ When users set up strategies (like "buy when X drops Y%"):
           </button>
         </div>
         
-        {/* Quick suggestions when chatting */}
-        {messages.length > 0 && (
+        {/* Max trade size indicator */}
+        {isAIEnabled && (
+          <div className="mt-2 text-xs text-gray-500 text-center">
+            Max trade: {settings?.maxTradeSize || '1'} SOL | 
+            {settings?.requireConfirmation ? ' Confirmation required' : ' Auto-execute'}
+          </div>
+        )}
+        
+        {messages.length > 0 && isAIEnabled && (
           <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
             {['Buy SOL', 'Sell all', 'Check prices', 'New strategy'].map((quick, i) => (
               <button
