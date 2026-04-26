@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const SUGGESTIONS = [
   "Buy 0.5 SOL worth of JUP",
@@ -11,55 +11,110 @@ const SUGGESTIONS = [
   "Set alert when WIF pumps 10%",
 ];
 
+const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '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';
+
 export default function AIPanel({ wallet, demoMode }) {
   const shortWallet = wallet ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : '';
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Load chat history from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('ghost_chat_history');
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load chat history:', e);
+      }
+    }
+  }, []);
+
+  // Save chat history to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('ghost_chat_history', JSON.stringify(messages.slice(-50))); // Keep last 50
+    }
+  }, [messages]);
+
+  const callAI = async (userMessage) => {
+    const systemPrompt = `You are Ghost, a friendly AI assistant for a private trading bot on Solana. You help users:
+- Execute trades privately (via Vanish protocol)
+- Set up automated trading strategies  
+- Check token prices
+- Understand how private trading works
+
+Keep responses SHORT (1-3 sentences max). Be helpful and conversational. Use emojis occasionally.
+
+Available tokens: SOL, USDC, USDT, JUP, BONK, WIF, RAY, ORCA
+
+Current approximate prices:
+- SOL: ~$148
+- JUP: ~$0.89  
+- BONK: ~$0.0000234
+- WIF: ~$2.34
+- RAY: ~$5.67
+- ORCA: ~$4.12
+
+When users want to trade:
+- Confirm what they want to do
+- Mention it will execute privately via Vanish
+- In demo mode, explain it's simulated
+
+When users set up strategies (like "buy when X drops Y%"):
+- Confirm the strategy is set up
+- Explain you're monitoring prices
+- Say it will auto-execute when conditions are met`;
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_KEY}`,
+          'HTTP-Referer': 'https://ghost.trade',
+          'X-Title': 'Ghost Trading'
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content: userMessage },
+          ],
+          temperature: 0.7,
+          max_tokens: 150,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('AI error:', data.error);
+        return "Sorry, I'm having trouble right now. Try again in a moment.";
+      }
+
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error('AI call failed:', error);
+      return "Something went wrong. Please try again.";
+    }
+  };
+
   const handleSubmit = async (command) => {
     const text = command || input;
     if (!text.trim()) return;
 
     // Add user message
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    const userMsg = { role: 'user', content: text };
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
 
     try {
-      if (demoMode) {
-        // Demo response
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        let response = "I understand you want to ";
-        if (text.toLowerCase().includes('buy')) {
-          response = "Got it! I'll set up that buy order for you. In live mode, this would execute privately via Vanish.";
-        } else if (text.toLowerCase().includes('sell')) {
-          response = "Understood! I'll prepare that sell order. Trades execute privately with no trace onchain.";
-        } else if (text.toLowerCase().includes('when') || text.toLowerCase().includes('if')) {
-          response = "Strategy created! I'm now monitoring prices and will execute automatically when conditions are met.";
-        } else if (text.toLowerCase().includes('price')) {
-          response = "SOL: $148.52 (+5.2%)\nJUP: $0.89 (-2.1%)\nBONK: $0.0000234 (+12.4%)";
-        } else {
-          response = "I can help you trade privately. Try commands like 'Buy SOL when it drops 5%' or 'Sell all my BONK'.";
-        }
-
-        setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-      } else {
-        // Real API call
-        const res = await fetch('/api/command', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: text, userAddress: wallet }),
-        });
-        const data = await res.json();
-        
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: data.explanation || 'Command processed.',
-          data 
-        }]);
-      }
+      const response = await callAI(text);
+      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
@@ -74,6 +129,11 @@ export default function AIPanel({ wallet, demoMode }) {
     handleSubmit(suggestion);
   };
 
+  const clearHistory = () => {
+    setMessages([]);
+    localStorage.removeItem('ghost_chat_history');
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col">
       {/* Header */}
@@ -82,9 +142,19 @@ export default function AIPanel({ wallet, demoMode }) {
           <img src="/ghost-logo.png" alt="Ghost" className="w-8 h-8 object-contain" />
           <span className="text-lg font-light tracking-[0.2em] text-white">GHOST</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-400" />
-          <span className="text-xs text-gray-400">{shortWallet}</span>
+        <div className="flex items-center gap-3">
+          {messages.length > 0 && (
+            <button 
+              onClick={clearHistory}
+              className="text-xs text-gray-500 hover:text-gray-300"
+            >
+              Clear
+            </button>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-400" />
+            <span className="text-xs text-gray-400">{shortWallet}</span>
+          </div>
         </div>
       </div>
 
@@ -139,9 +209,10 @@ export default function AIPanel({ wallet, demoMode }) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            onKeyDown={(e) => e.key === 'Enter' && !loading && handleSubmit()}
             placeholder="Type a command..."
             className="flex-1 bg-transparent outline-none text-white placeholder-gray-500"
+            disabled={loading}
           />
           <button
             onClick={() => handleSubmit()}
