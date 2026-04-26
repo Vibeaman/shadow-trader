@@ -288,7 +288,8 @@ app.get('/api/vault/status', (req, res) => {
 // ============================================
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const HOST = '0.0.0.0'; // Bind to all interfaces for Railway
+app.listen(PORT, HOST, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                    SHADOW TRADER                          ║
