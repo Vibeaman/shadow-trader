@@ -19,8 +19,11 @@ export const api = {
   
   // Trading
   getBalance: (userAddress, signature, timestamp) => 
-    fetch(`${API_BASE}/api/balance?userAddress=${userAddress}&signature=${signature}&timestamp=${timestamp}`)
-      .then(r => r.json()),
+    fetch(`${API_BASE}/api/balance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userAddress, signature, timestamp }),
+    }).then(r => r.json()),
   
   getDepositAddress: (tokenAddress) =>
     fetch(`${API_BASE}/api/deposit-address?tokenAddress=${tokenAddress}`)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../config/api';
+import { createReadSignature } from '../utils/vanishSigning';
 
 // Mock holdings data
 const MOCK_HOLDINGS = [
@@ -21,11 +22,33 @@ export default function Holdings({ wallet, demoMode }) {
 
     setLoading(true);
     try {
-      // Real API call would go here
-      const data = await api.getBalance(wallet, '', '');
-      // Transform data...
+      // Get signature for balance request
+      const { signature, timestamp } = await createReadSignature();
+      
+      // Fetch real Vanish balances
+      const data = await api.getBalance(wallet, signature, timestamp);
+      
+      if (Array.isArray(data)) {
+        // Transform Vanish balance data to our format
+        const transformed = data.map(item => {
+          const symbol = getTokenSymbol(item.token_address);
+          const balance = parseFloat(item.balance) / 1e9; // Convert from lamports
+          const price = getTokenPrice(symbol);
+          return {
+            symbol,
+            name: getTokenName(symbol),
+            balance,
+            value: balance * price,
+            change: 0,
+            image: getTokenImage(item.token_address),
+          };
+        }).filter(h => h.balance > 0);
+        setHoldings(transformed);
+      }
     } catch (error) {
       console.error('Failed to fetch holdings:', error);
+      // Fall back to showing empty if no Vanish balance
+      setHoldings([]);
     }
     setLoading(false);
   };
@@ -33,6 +56,37 @@ export default function Holdings({ wallet, demoMode }) {
   useEffect(() => {
     fetchHoldings();
   }, [wallet, demoMode]);
+
+  // Token helpers
+  const getTokenSymbol = (address) => {
+    const tokens = {
+      '11111111111111111111111111111111': 'SOL',
+      'So11111111111111111111111111111111111111112': 'SOL',
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
+    };
+    return tokens[address] || 'UNKNOWN';
+  };
+
+  const getTokenName = (symbol) => {
+    const names = { SOL: 'Solana', USDC: 'USD Coin', USDT: 'Tether' };
+    return names[symbol] || symbol;
+  };
+
+  const getTokenPrice = (symbol) => {
+    // TODO: Get from price monitor
+    const prices = { SOL: 148, USDC: 1, USDT: 1 };
+    return prices[symbol] || 0;
+  };
+
+  const getTokenImage = (address) => {
+    const images = {
+      '11111111111111111111111111111111': 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
+      'So11111111111111111111111111111111111111112': 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+    };
+    return images[address] || '';
+  };
 
   return (
     <div className="px-4 pt-4">

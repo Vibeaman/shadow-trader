@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../config/api';
+import { createTradeSignature } from '../utils/vanishSigning';
 
 export default function SwapModal({ token, wallet, demoMode, onClose }) {
   const [amount, setAmount] = useState('');
@@ -23,23 +24,41 @@ export default function SwapModal({ token, wallet, demoMode, onClose }) {
           txId: 'demo_' + Math.random().toString(36).slice(2, 10),
         });
       } else {
-        // Real swap via API
+        // Real swap via Vanish
+        const sourceToken = swapDirection === 'buy' 
+          ? '11111111111111111111111111111111' // Native SOL for Vanish
+          : token.address;
+        const targetToken = swapDirection === 'buy' 
+          ? token.address 
+          : '11111111111111111111111111111111';
+        const amountLamports = (parseFloat(amount) * 1e9).toString();
+
+        // Get signature from Phantom
+        const { signature, timestamp, loanSol, jitoTip } = await createTradeSignature({
+          sourceToken,
+          targetToken,
+          amount: amountLamports,
+        });
+
+        // Execute trade via backend
         const data = await api.trade({
           userAddress: wallet,
-          sourceToken: swapDirection === 'buy' 
-            ? 'So11111111111111111111111111111111111111112' 
-            : token.address,
-          targetToken: swapDirection === 'buy' 
-            ? token.address 
-            : 'So11111111111111111111111111111111111111112',
-          amount: (parseFloat(amount) * 1e9).toString(),
-          // Note: In production, signature would come from wallet
+          sourceToken,
+          targetToken,
+          amount: amountLamports,
+          userSignature: signature,
+          timestamp,
+          loanSol,
+          jitoTip,
         });
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
         setResult({
-          success: data.success,
-          message: data.success 
-            ? `Swapped privately! TX: ${data.txId.slice(0, 8)}...`
-            : data.error,
+          success: true,
+          message: `Swapped privately! TX: ${data.txId?.slice(0, 8) || 'pending'}...`,
           txId: data.txId,
         });
       }

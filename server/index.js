@@ -83,10 +83,22 @@ app.get('/api/price/:symbol', (req, res) => {
 // Vanish Trading Endpoints
 // ============================================
 
+app.post('/api/balance', async (req, res) => {
+  try {
+    const { userAddress, signature, timestamp } = req.body;
+    const balance = await vanish.getBalances(userAddress, signature, timestamp);
+    res.json(balance);
+  } catch (error) {
+    console.error('[Balance] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Keep GET for backwards compatibility
 app.get('/api/balance', async (req, res) => {
   try {
     const { userAddress, signature, timestamp } = req.query;
-    const balance = await vanish.getBalance(userAddress, signature, timestamp);
+    const balance = await vanish.getBalances(userAddress, signature, timestamp);
     res.json(balance);
   } catch (error) {
     res.status(500).json({ error: error.message });
