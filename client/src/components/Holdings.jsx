@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { DemoBalanceContext } from '../App';
 import { api } from '../config/api';
-import { createReadSignature } from '../utils/vanishSigning';
+import { createReadSignature, createWithdrawSignature } from '../utils/vanishSigning';
 
 // Token metadata
 const TOKEN_INFO = {
@@ -127,15 +127,49 @@ export default function Holdings({ wallet, demoMode }) {
 
   // Handle withdraw
   const handleWithdraw = async () => {
-    if (!withdrawAmount) return;
+    if (!withdrawAmount || !wallet) return;
     
     setActionLoading(true);
     setMessage('');
     try {
-      // This would need wallet signing - simplified for now
-      setMessage('Withdraw functionality requires wallet signature. Coming soon!');
+      const tokenAddress = withdrawToken === 'SOL' 
+        ? '11111111111111111111111111111111' 
+        : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      
+      const decimals = withdrawToken === 'SOL' ? 9 : 6;
+      const amountInBaseUnits = Math.floor(parseFloat(withdrawAmount) * Math.pow(10, decimals)).toString();
+      
+      // Sign the withdraw request with Phantom
+      setMessage('Please sign the withdraw request in your wallet...');
+      const { signature, timestamp, additionalSol } = await createWithdrawSignature({
+        tokenAddress,
+        amount: amountInBaseUnits,
+      });
+      
+      // Call withdraw API
+      const result = await api.withdraw({
+        userAddress: wallet,
+        tokenAddress,
+        amount: amountInBaseUnits,
+        additionalSol,
+        timestamp,
+        userSignature: signature,
+      });
+      
+      if (result.success) {
+        setMessage(`Withdrawal initiated! TX: ${result.txId?.slice(0, 8)}... Check your wallet shortly.`);
+        setWithdrawAmount('');
+        // Refresh balances after a delay
+        setTimeout(() => fetchAll(), 3000);
+      } else {
+        setMessage('Withdraw failed: ' + (result.error || 'Unknown error'));
+      }
     } catch (error) {
-      setMessage('Withdraw failed: ' + error.message);
+      if (error.message?.includes('User rejected')) {
+        setMessage('Signature cancelled');
+      } else {
+        setMessage('Withdraw failed: ' + error.message);
+      }
     }
     setActionLoading(false);
   };

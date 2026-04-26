@@ -36,6 +36,13 @@ export const api = {
       body: JSON.stringify(params),
     }).then(r => r.json()),
   
+  withdraw: (params) =>
+    fetch(`${API_BASE}/api/withdraw`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    }).then(r => r.json()),
+  
   // AI Commands
   command: (command, userAddress) =>
     fetch(`${API_BASE}/api/command`, {

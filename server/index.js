@@ -173,6 +173,37 @@ app.post('/api/commit', async (req, res) => {
   }
 });
 
+app.post('/api/withdraw', async (req, res) => {
+  try {
+    const {
+      userAddress,
+      tokenAddress,
+      amount,
+      additionalSol,
+      timestamp,
+      userSignature,
+    } = req.body;
+
+    const result = await vanish.createWithdraw({
+      userAddress,
+      tokenAddress,
+      amount,
+      additionalSol,
+      timestamp,
+      userSignature,
+    });
+
+    res.json({
+      success: true,
+      txId: result.tx_id,
+      status: result.status,
+    });
+  } catch (error) {
+    console.error('[Withdraw] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================
 // AI Agent Endpoints
 // ============================================
