@@ -11,6 +11,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({ name: 'Shadow Trader API', status: 'running' });
+});
+
+// Request logging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
+
 const vanish = new VanishClient();
 const agent = new AIAgent();
 
