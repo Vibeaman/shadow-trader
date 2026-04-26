@@ -1,9 +1,23 @@
 /**
  * Price Monitor Service
- * Fetches real-time prices from Jupiter and tracks price changes
+ * Fetches real-time prices from CoinGecko and tracks price changes
  */
 
-// Popular token addresses on Solana
+// Token symbol to CoinGecko ID mapping
+const COINGECKO_IDS = {
+  SOL: 'solana',
+  JUP: 'jupiter-exchange-solana',
+  BONK: 'bonk',
+  WIF: 'dogwifcoin',
+  RAY: 'raydium',
+  ORCA: 'orca',
+  PYTH: 'pyth-network',
+  RENDER: 'render-token',
+  USDC: 'usd-coin',
+  USDT: 'tether',
+};
+
+// Token addresses (for reference)
 export const TOKENS = {
   SOL: 'So11111111111111111111111111111111111111112',
   USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -17,11 +31,11 @@ export const TOKENS = {
 
 export class PriceMonitor {
   constructor() {
-    this.prices = new Map(); // token -> { price, timestamp, history }
-    this.subscribers = new Map(); // token -> Set of callbacks
+    this.prices = new Map(); // symbol -> { price, change24h, timestamp, history }
+    this.subscribers = new Map(); // symbol -> Set of callbacks
     this.isRunning = false;
-    this.pollInterval = 10000; // 10 seconds
-    this.historyLength = 60; // Keep 60 data points (10 min at 10s intervals)
+    this.pollInterval = 30000; // 30 seconds (CoinGecko rate limits)
+    this.historyLength = 60; // Keep 60 data points
   }
 
   /**
@@ -43,7 +57,7 @@ export class PriceMonitor {
   }
 
   /**
-   * Poll prices from Jupiter
+   * Poll prices
    */
   async poll() {
     if (!this.isRunning) return;
@@ -59,34 +73,36 @@ export class PriceMonitor {
   }
 
   /**
-   * Fetch prices from Jupiter Price API
+   * Fetch prices from CoinGecko
    */
   async fetchPrices() {
-    const tokenIds = Object.values(TOKENS).join(',');
-    const url = `https://price.jup.ag/v6/price?ids=${tokenIds}`;
+    const ids = Object.values(COINGECKO_IDS).join(',');
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
 
     const res = await fetch(url);
     if (!res.ok) {
-      throw new Error(`Jupiter API error: ${res.status}`);
+      throw new Error(`CoinGecko API error: ${res.status}`);
     }
 
     const data = await res.json();
     const now = Date.now();
 
-    for (const [address, priceData] of Object.entries(data.data || {})) {
-      const price = priceData.price;
-      const symbol = Object.entries(TOKENS).find(([_, addr]) => addr === address)?.[0];
+    // Map CoinGecko data back to our symbols
+    for (const [symbol, geckoId] of Object.entries(COINGECKO_IDS)) {
+      const priceData = data[geckoId];
+      if (!priceData) continue;
 
-      if (!symbol) continue;
+      const price = priceData.usd;
+      const change24h = priceData.usd_24h_change || 0;
 
       // Get or create price entry
       let entry = this.prices.get(symbol);
       if (!entry) {
-        entry = { price: 0, timestamp: 0, history: [] };
+        entry = { price: 0, change24h: 0, timestamp: 0, history: [] };
         this.prices.set(symbol, entry);
       }
 
-      // Calculate change
+      // Calculate short-term change from history
       const previousPrice = entry.price;
       const changePercent = previousPrice > 0 
         ? ((price - previousPrice) / previousPrice) * 100 
@@ -94,6 +110,7 @@ export class PriceMonitor {
 
       // Update entry
       entry.price = price;
+      entry.change24h = change24h;
       entry.timestamp = now;
       entry.history.push({ price, timestamp: now });
 
@@ -102,13 +119,14 @@ export class PriceMonitor {
         entry.history.shift();
       }
 
-      // Notify subscribers if price changed significantly (> 0.1%)
-      if (Math.abs(changePercent) > 0.1) {
+      // Notify subscribers if price changed significantly (> 0.5%)
+      if (Math.abs(changePercent) > 0.5) {
         this.notifySubscribers(symbol, {
           symbol,
           price,
           previousPrice,
           changePercent,
+          change24h,
           timestamp: now,
         });
       }
@@ -134,9 +152,8 @@ export class PriceMonitor {
       result[symbol] = {
         price: entry.price,
         timestamp: entry.timestamp,
-        change1m: this.calculateChange(symbol, 60000), // 1 min
+        change24h: entry.change24h,
         change5m: this.calculateChange(symbol, 300000), // 5 min
-        change10m: this.calculateChange(symbol, 600000), // 10 min
       };
     }
     return result;
@@ -147,14 +164,14 @@ export class PriceMonitor {
    */
   calculateChange(symbol, periodMs) {
     const entry = this.prices.get(symbol.toUpperCase());
-    if (!entry || entry.history.length < 2) return 0;
+    if (!entry || entry.history.length < 2) return entry?.change24h || 0;
 
     const now = Date.now();
     const cutoff = now - periodMs;
 
     // Find the oldest price within the period
     const oldEntry = entry.history.find(h => h.timestamp >= cutoff);
-    if (!oldEntry) return 0;
+    if (!oldEntry) return entry.change24h || 0;
 
     return ((entry.price - oldEntry.price) / oldEntry.price) * 100;
   }
