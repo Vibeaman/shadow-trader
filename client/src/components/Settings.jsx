@@ -1,12 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+const SETTINGS_KEY = 'ghost_settings';
+
+const loadSettings = () => {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
 
 export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }) {
   const [activeTab, setActiveTab] = useState('General');
-  const [displayCurrency, setDisplayCurrency] = useState('USD');
-  const [topBar, setTopBar] = useState(true);
-  const [clipboardBuy, setClipboardBuy] = useState(true);
-  const [walletSync, setWalletSync] = useState(true);
-  const [quickBuySync, setQuickBuySync] = useState(true);
+  const [settings, setSettings] = useState(() => ({
+    displayCurrency: 'USD',
+    topBar: true,
+    clipboardBuy: true,
+    walletSync: true,
+    quickBuySync: true,
+    ...loadSettings(),
+  }));
+
+  // Save settings to localStorage
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [settings]);
+
+  const updateSetting = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+  };
 
   const tabs = ['General', 'Privacy', 'AI', 'About'];
 
@@ -101,18 +124,18 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Top Bar</span>
-                  <Toggle enabled={topBar} onChange={setTopBar} />
+                  <Toggle enabled={settings.topBar} onChange={(v) => updateSetting('topBar', v)} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Clipboard Buy Button</span>
-                  <Toggle enabled={clipboardBuy} onChange={setClipboardBuy} />
+                  <Toggle enabled={settings.clipboardBuy} onChange={(v) => updateSetting('clipboardBuy', v)} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Display Currency</span>
                   <SegmentControl 
                     options={['USD', 'SOL']} 
-                    value={displayCurrency} 
-                    onChange={setDisplayCurrency} 
+                    value={settings.displayCurrency} 
+                    onChange={(v) => updateSetting('displayCurrency', v)} 
                   />
                 </div>
               </div>
@@ -124,11 +147,11 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-300 underline decoration-dotted underline-offset-4">Wallet Selection</span>
-                  <Toggle enabled={walletSync} onChange={setWalletSync} />
+                  <Toggle enabled={settings.walletSync} onChange={(v) => updateSetting('walletSync', v)} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-300 underline decoration-dotted underline-offset-4">Quick Buy Amount</span>
-                  <Toggle enabled={quickBuySync} onChange={setQuickBuySync} />
+                  <Toggle enabled={settings.quickBuySync} onChange={(v) => updateSetting('quickBuySync', v)} />
                 </div>
               </div>
             </div>
