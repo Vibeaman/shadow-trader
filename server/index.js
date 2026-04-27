@@ -82,6 +82,52 @@ app.get('/api/price/:symbol', (req, res) => {
 });
 
 // ============================================
+// Wallet Balance (no signature required)
+// ============================================
+
+app.get('/api/wallet-balance/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    
+    // Validate address format (basic check)
+    if (!address || address.length < 32 || address.length > 44) {
+      return res.status(400).json({ error: 'Invalid wallet address' });
+    }
+    
+    // Fetch from Solana RPC (no CORS issues from backend)
+    const response = await fetch('https://api.mainnet-beta.solana.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getBalance',
+        params: [address]
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+    
+    const lamports = data.result?.value || 0;
+    const sol = lamports / 1e9;
+    
+    res.json({ 
+      address,
+      lamports,
+      sol,
+      success: true
+    });
+  } catch (error) {
+    console.error('[WalletBalance] Error:', error.message);
+    res.status(500).json({ error: error.message, success: false });
+  }
+});
+
+// ============================================
 // Vanish Trading Endpoints
 // ============================================
 

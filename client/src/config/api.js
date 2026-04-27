@@ -33,6 +33,9 @@ export const api = {
   // Health
   health: () => safeFetch(`${API_BASE}/api/health`),
   
+  // Wallet balance (no signature required)
+  getWalletBalance: (address) => safeFetch(`${API_BASE}/api/wallet-balance/${address}`),
+  
   // Prices
   getPrices: () => safeFetch(`${API_BASE}/api/prices`),
   getPrice: (symbol) => safeFetch(`${API_BASE}/api/price/${symbol}`),

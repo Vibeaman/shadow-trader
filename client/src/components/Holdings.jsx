@@ -28,7 +28,7 @@ export default function Holdings({ wallet, demoMode, walletType }) {
   const [message, setMessage] = useState('');
   const demoBalance = useContext(DemoBalanceContext);
 
-  // Fetch wallet balance from Solana (works for both Phantom and Privy wallets)
+  // Fetch wallet balance via backend (avoids CORS issues with Solana RPC)
   const fetchWalletBalance = async () => {
     if (!wallet) return;
     
@@ -39,17 +39,13 @@ export default function Holdings({ wallet, demoMode, walletType }) {
     }
     
     try {
-      const { Connection, PublicKey } = await import('@solana/web3.js');
-      // Use Helius public RPC (more reliable than mainnet-beta which rate limits)
-      const connection = new Connection(
-        'https://mainnet.helius-rpc.com/?api-key=1d8740dc-e5f4-421c-b823-e1bad1889eff',
-        'confirmed'
-      );
-      const pubkey = new PublicKey(wallet);
+      const response = await api.getWalletBalance(wallet);
       
-      // Get SOL balance
-      const solBalance = await connection.getBalance(pubkey);
-      const solAmount = solBalance / 1e9;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch balance');
+      }
+      
+      const solAmount = response.sol;
       
       const walletHoldings = [{
         symbol: 'SOL',

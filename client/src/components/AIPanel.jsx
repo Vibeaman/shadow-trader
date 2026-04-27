@@ -110,14 +110,18 @@ export default function AIPanel({ wallet, demoMode }) {
 
     // Real trade - execute via Vanish with Phantom signing
     try {
-      // Check if wallet has balance (basic SOL check)
+      // Check if wallet has balance via backend (avoids CORS issues)
       // Always check SOL balance first (needed for gas even if trading other tokens)
+      let solBalance = 0;
       try {
-        const { Connection, PublicKey } = await import('@solana/web3.js');
-        // Use Helius public RPC (more reliable than mainnet-beta which rate limits)
-const connection = new Connection('https://mainnet.helius-rpc.com/?api-key=1d8740dc-e5f4-421c-b823-e1bad1889eff', 'confirmed');
-        const balance = await connection.getBalance(new PublicKey(wallet));
-        const solBalance = balance / 1e9;
+        const balanceRes = await fetch(`${API_BASE}/api/wallet-balance/${wallet}`);
+        const balanceData = await balanceRes.json();
+        
+        if (!balanceData.success) {
+          throw new Error(balanceData.error || 'Failed to fetch balance');
+        }
+        
+        solBalance = balanceData.sol;
         const gasNeeded = 0.015; // ~0.015 SOL for gas + ATAs
         
         // If trading SOL, need amount + gas
