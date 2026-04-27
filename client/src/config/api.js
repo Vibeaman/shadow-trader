@@ -9,74 +9,88 @@ export const API_BASE = isDev
   ? 'http://localhost:3001'
   : (import.meta.env.VITE_API_URL || 'https://shadow-trader-production-222e.up.railway.app');
 
+console.log('[API] Base URL:', API_BASE);
+
+// Helper to safely fetch and parse JSON
+const safeFetch = async (url, options = {}) => {
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      console.error(`[API] HTTP error ${response.status} for ${url}`);
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`[API] Fetch failed for ${url}:`, error.message);
+    throw error;
+  }
+};
+
 export const api = {
   // Health
-  health: () => fetch(`${API_BASE}/api/health`).then(r => r.json()),
+  health: () => safeFetch(`${API_BASE}/api/health`),
   
   // Prices
-  getPrices: () => fetch(`${API_BASE}/api/prices`).then(r => r.json()),
-  getPrice: (symbol) => fetch(`${API_BASE}/api/price/${symbol}`).then(r => r.json()),
+  getPrices: () => safeFetch(`${API_BASE}/api/prices`),
+  getPrice: (symbol) => safeFetch(`${API_BASE}/api/price/${symbol}`),
   
   // Trading
   getBalance: (userAddress, signature, timestamp) => 
-    fetch(`${API_BASE}/api/balance`, {
+    safeFetch(`${API_BASE}/api/balance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userAddress, signature, timestamp }),
-    }).then(r => r.json()),
+    }),
   
   getDepositAddress: (tokenAddress) =>
-    fetch(`${API_BASE}/api/deposit-address?tokenAddress=${tokenAddress}`)
-      .then(r => r.json()),
+    safeFetch(`${API_BASE}/api/deposit-address?tokenAddress=${tokenAddress}`),
   
   trade: (params) =>
-    fetch(`${API_BASE}/api/trade`, {
+    safeFetch(`${API_BASE}/api/trade`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
-    }).then(r => r.json()),
+    }),
   
   withdraw: (params) =>
-    fetch(`${API_BASE}/api/withdraw`, {
+    safeFetch(`${API_BASE}/api/withdraw`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
-    }).then(r => r.json()),
+    }),
   
   // AI Commands
   command: (command, userAddress) =>
-    fetch(`${API_BASE}/api/command`, {
+    safeFetch(`${API_BASE}/api/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command, userAddress }),
-    }).then(r => r.json()),
+    }),
   
   // Strategies
   getStrategies: (userAddress) =>
-    fetch(`${API_BASE}/api/strategies?userAddress=${userAddress}`)
-      .then(r => r.json()),
+    safeFetch(`${API_BASE}/api/strategies?userAddress=${userAddress}`),
   
   createStrategy: (params) =>
-    fetch(`${API_BASE}/api/strategy`, {
+    safeFetch(`${API_BASE}/api/strategy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
-    }).then(r => r.json()),
+    }),
   
   toggleStrategy: (id, enabled) =>
-    fetch(`${API_BASE}/api/strategy/${id}/toggle`, {
+    safeFetch(`${API_BASE}/api/strategy/${id}/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled }),
-    }).then(r => r.json()),
+    }),
   
   deleteStrategy: (id) =>
-    fetch(`${API_BASE}/api/strategy/${id}`, { method: 'DELETE' })
-      .then(r => r.json()),
+    safeFetch(`${API_BASE}/api/strategy/${id}`, { method: 'DELETE' }),
   
   // Vault
-  vaultStatus: () => fetch(`${API_BASE}/api/vault/status`).then(r => r.json()),
+  vaultStatus: () => safeFetch(`${API_BASE}/api/vault/status`),
 };
 
 export default api;
-// trigger redeploy 1777205038

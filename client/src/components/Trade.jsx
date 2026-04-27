@@ -29,12 +29,15 @@ export default function Trade({ wallet, demoMode }) {
   // Fetch live prices from backend
   useEffect(() => {
     const fetchPrices = async () => {
+      console.log('[Trade] Fetching prices...');
       try {
         const data = await api.getPrices();
+        console.log('[Trade] Price data received:', data);
         if (data.success && data.prices) {
           // Merge metadata with live prices
           const updatedTokens = TOKEN_METADATA.map(token => {
             const livePrice = data.prices[token.symbol];
+            console.log(`[Trade] ${token.symbol}: $${livePrice?.price}`);
             return {
               ...token,
               price: livePrice?.price || 0,
@@ -42,12 +45,14 @@ export default function Trade({ wallet, demoMode }) {
             };
           });
           setTokens(updatedTokens);
+          console.log('[Trade] Tokens updated with live prices');
         } else {
+          console.warn('[Trade] No prices in response, using fallback');
           // Fallback - show tokens with 0 price
           setTokens(TOKEN_METADATA.map(t => ({ ...t, price: 0, change: 0 })));
         }
       } catch (error) {
-        console.error('Price fetch error:', error);
+        console.error('[Trade] Price fetch error:', error);
         // Fallback
         setTokens(TOKEN_METADATA.map(t => ({ ...t, price: 0, change: 0 })));
       }
