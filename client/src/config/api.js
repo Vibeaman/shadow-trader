@@ -4,10 +4,12 @@
 
 const isDev = import.meta.env.DEV;
 
-// Set this to your Railway backend URL after deployment
+// Railway backend URL - hardcoded for reliability
+const RAILWAY_URL = 'https://shadow-trader-production-222e.up.railway.app';
+
 export const API_BASE = isDev 
   ? 'http://localhost:3001'
-  : (import.meta.env.VITE_API_URL || 'https://shadow-trader-production-222e.up.railway.app');
+  : RAILWAY_URL;
 
 console.log('[API] Base URL:', API_BASE);
 
