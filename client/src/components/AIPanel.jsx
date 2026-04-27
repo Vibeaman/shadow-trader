@@ -117,21 +117,38 @@ export default function AIPanel({ wallet, demoMode }) {
         const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
         const balance = await connection.getBalance(new PublicKey(wallet));
         const solBalance = balance / 1e9;
+        const gasNeeded = 0.015; // ~0.015 SOL for gas + ATAs
         
         // If trading SOL, need amount + gas
         if (fromSymbol.toUpperCase() === 'SOL') {
-          if (solBalance < amount + 0.01) {
+          const totalNeeded = amount + gasNeeded;
+          if (solBalance < totalNeeded) {
+            const shortfall = totalNeeded - solBalance;
             return { 
               success: false, 
-              error: `Not enough SOL. You have ${solBalance.toFixed(4)} SOL but need ${amount} SOL + ~0.01 SOL for gas. Deposit SOL to your wallet first!` 
+              error: `Insufficient balance for this trade.\n\n` +
+                `📊 **Trade:** ${amount} SOL → ${toSymbol}\n` +
+                `💰 **Your balance:** ${solBalance.toFixed(4)} SOL\n` +
+                `📋 **Required:**\n` +
+                `   • Trade amount: ${amount} SOL\n` +
+                `   • Gas + fees: ~${gasNeeded} SOL\n` +
+                `   • **Total needed: ${totalNeeded.toFixed(4)} SOL**\n\n` +
+                `❌ **Shortfall: ${shortfall.toFixed(4)} SOL**\n\n` +
+                `💡 Deposit at least ${shortfall.toFixed(4)} SOL to complete this trade.`
             };
           }
         } else {
           // Trading other token, still need SOL for gas
-          if (solBalance < 0.01) {
+          if (solBalance < gasNeeded) {
+            const shortfall = gasNeeded - solBalance;
             return { 
               success: false, 
-              error: `Not enough SOL for gas fees. You have ${solBalance.toFixed(4)} SOL but need ~0.01 SOL. Deposit some SOL first!` 
+              error: `Not enough SOL for transaction fees.\n\n` +
+                `📊 **Trade:** ${amount} ${fromSymbol} → ${toSymbol}\n` +
+                `💰 **Your SOL balance:** ${solBalance.toFixed(4)} SOL\n` +
+                `📋 **Gas needed:** ~${gasNeeded} SOL\n\n` +
+                `❌ **Shortfall: ${shortfall.toFixed(4)} SOL**\n\n` +
+                `💡 Deposit at least ${shortfall.toFixed(4)} SOL for gas fees.`
             };
           }
         }
