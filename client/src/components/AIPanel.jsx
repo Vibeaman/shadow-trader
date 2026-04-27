@@ -256,9 +256,9 @@ When users set up strategies (like "buy when X drops Y%"):
           {messages.length > 0 && (
             <button 
               onClick={clearHistory}
-              className="text-xs text-gray-500 hover:text-gray-300"
+              className="text-xs px-2 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
             >
-              Clear
+              Clear Chat
             </button>
           )}
           <div className="flex items-center gap-2">
