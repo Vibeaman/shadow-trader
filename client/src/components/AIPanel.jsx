@@ -17,6 +17,53 @@ const SUGGESTIONS = [
 // OpenRouter key - only used as fallback if backend is down
 const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
+// Helper component to render messages with clickable links
+function MessageContent({ content }) {
+  // Parse markdown-style links: [text](url)
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = linkRegex.exec(content)) !== null) {
+    // Add text before the link
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+    // Add the link as a button
+    parts.push(
+      <a
+        key={match.index}
+        href={match[2]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block mt-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-medium rounded-lg transition-colors"
+      >
+        {match[1]}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+
+  // If no links found, just return the text
+  if (parts.length === 0) {
+    return <p className="whitespace-pre-wrap">{content}</p>;
+  }
+
+  return (
+    <div className="whitespace-pre-wrap">
+      {parts.map((part, i) => (
+        typeof part === 'string' ? <span key={i}>{part}</span> : part
+      ))}
+    </div>
+  );
+}
+
 export default function AIPanel({ wallet, demoMode }) {
   const shortWallet = wallet ? `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : '';
   const [input, setInput] = useState('');
@@ -96,23 +143,28 @@ export default function AIPanel({ wallet, demoMode }) {
         }
       }
       
+      // Handle funding commands (MoonPay) - check BEFORE generic response
+      if (backendRes.type === 'funding') {
+        if (backendRes.fundingUrl) {
+          // Try to open MoonPay in new tab (may be blocked on mobile)
+          const opened = window.open(backendRes.fundingUrl, '_blank');
+          if (opened) {
+            return (backendRes.response || "Opening MoonPay...") + " I've opened MoonPay in a new tab. 💰";
+          } else {
+            // Popup blocked - return URL in message
+            return (backendRes.response || "Ready!") + `\n\n👉 [Open MoonPay](${backendRes.fundingUrl})`;
+          }
+        } else {
+          return backendRes.response || "Couldn't set up the funding request. Try again?";
+        }
+      }
+
       if (backendRes.response) {
         return backendRes.response;
       }
       
       if (backendRes.strategyCreated) {
         return `Got it! I've set up your strategy. I'll monitor prices and execute privately when conditions are met. 👻`;
-      }
-
-      // Handle funding commands (MoonPay)
-      if (backendRes.type === 'funding') {
-        if (backendRes.fundingUrl) {
-          // Open MoonPay in new tab
-          window.open(backendRes.fundingUrl, '_blank');
-          return (backendRes.response || "Opening MoonPay...") + " I've opened MoonPay in a new tab for you. 💰";
-        } else {
-          return backendRes.response || "Couldn't set up the funding request. Try again?";
-        }
       }
     } catch (backendError) {
       console.log('Backend unavailable, falling back to direct AI call');
@@ -314,7 +366,7 @@ When users set up strategies (like "buy when X drops Y%"):
                     ? 'bg-cyan-500/20 text-white' 
                     : 'bg-[#1a1a24] text-gray-200'
                 }`}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <MessageContent content={msg.content} />
                 </div>
               </div>
             ))}
