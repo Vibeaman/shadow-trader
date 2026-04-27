@@ -16,7 +16,7 @@ export const DemoBalanceContext = createContext(null);
 // Context for wallet type (phantom vs privy)
 export const WalletTypeContext = createContext('phantom');
 
-const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || 'cm9x9iu4800hdkvtg7ycxamfp';
+const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || 'cmogxd3ym004j0cicd87elyrd';
 
 function AppContent() {
   const { ready, authenticated, user, logout } = usePrivy();
