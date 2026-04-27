@@ -86,7 +86,7 @@ export default function Landing({ onConnect }) {
 
       {/* Footer */}
       <p className="mt-12 text-xs text-gray-600">
-        Powered by Vanish + Arcium • Built for Colosseum Hackathon
+        Powered by Vanish + Arcium + MoonPay • Built for Colosseum Hackathon
       </p>
     </div>
   );

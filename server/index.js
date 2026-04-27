@@ -6,6 +6,7 @@ import { AIAgent } from './agent.js';
 import { priceMonitor } from './priceMonitor.js';
 import { strategyEngine } from './strategyEngine.js';
 import { arciumVault } from './arcium.js';
+import { moonpayService } from './moonpay.js';
 
 const app = express();
 app.use(cors());
@@ -41,6 +42,7 @@ app.get('/api/health', (req, res) => {
       priceMonitor: priceMonitor.isRunning,
       strategyEngine: strategyEngine.isRunning,
       arcium: arciumVault.getStatus(),
+      moonpay: moonpayService.getStatus(),
     }
   });
 });
@@ -338,6 +340,64 @@ app.get('/api/vault/status', (req, res) => {
 });
 
 // ============================================
+// MoonPay Endpoints
+// ============================================
+
+app.get('/api/moonpay/status', (req, res) => {
+  try {
+    const status = moonpayService.getStatus();
+    res.json({ success: true, ...status });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/moonpay/buy-url', async (req, res) => {
+  try {
+    const { walletAddress, amount, token } = req.body;
+    const url = moonpayService.generateBuyUrl({
+      walletAddress,
+      baseCurrencyAmount: amount,
+      currencyCode: token || 'sol',
+    });
+    const quote = await moonpayService.getBuyQuote({
+      baseCurrencyAmount: amount,
+      currencyCode: (token || 'sol').toLowerCase(),
+    });
+    res.json({ success: true, url, quote });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/moonpay/sell-url', (req, res) => {
+  try {
+    const { walletAddress, amount, token } = req.body;
+    const url = moonpayService.generateSellUrl({
+      walletAddress,
+      quoteCurrencyAmount: amount,
+      currencyCode: token || 'sol',
+    });
+    res.json({ success: true, url });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/moonpay/fund', async (req, res) => {
+  try {
+    const { action, amount, targetToken, walletAddress } = req.body;
+    const result = await moonpayService.handleFundingRequest(
+      { action, amount, targetToken },
+      walletAddress
+    );
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
 // Start Server
 // ============================================
 
@@ -353,6 +413,7 @@ app.listen(PORT, HOST, () => {
 ║  Price Monitor:  ${priceMonitor.isRunning ? '✓ Running' : '✗ Stopped'}                            ║
 ║  Strategy Engine: ${strategyEngine.isRunning ? '✓ Running' : '✗ Stopped'}                           ║
 ║  Arcium Vault:   ${arciumVault.isArciumEnabled ? '✓ Connected' : '○ Local Mode'}                         ║
+║  MoonPay:        ${moonpayService.isEnabled ? '✓ Configured' : '○ Demo Mode'}                        ║
 ║  Vanish API:     ${process.env.VANISH_API_KEY ? '✓ Configured' : '○ Demo Mode'}                        ║
 ╚═══════════════════════════════════════════════════════════╝
   `);

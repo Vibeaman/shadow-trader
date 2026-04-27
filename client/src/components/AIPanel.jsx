@@ -7,10 +7,10 @@ const SUGGESTIONS = [
   "Buy 0.5 SOL worth of JUP",
   "Sell all my BONK for SOL",
   "Buy SOL when it drops 5%",
-  "Sell JUP if it goes above $1",
   "What's the price of SOL?",
+  "Fund my wallet with $50",
   "Show me trending tokens",
-  "Buy $50 worth of BONK",
+  "Cash out 1 SOL to my bank",
   "Set alert when WIF pumps 10%",
 ];
 

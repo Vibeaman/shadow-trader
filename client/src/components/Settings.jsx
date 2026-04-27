@@ -373,6 +373,10 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }
                   <span className="text-purple-400">Arcium MPC</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-gray-500">On/Off Ramp</span>
+                  <span className="text-yellow-400">MoonPay</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-500">AI Agent</span>
                   <span>OpenRouter</span>
                 </div>

@@ -67,6 +67,16 @@ For QUESTIONS:
   "response": "helpful answer"
 }
 
+For FUNDING requests (user wants to add money to wallet):
+{
+  "type": "funding",
+  "action": "onramp" | "offramp",
+  "amount": "dollar amount",
+  "currency": "USD" | "EUR" | etc,
+  "targetToken": "SOL" or "USDC" (what to buy),
+  "response": "confirmation about funding via MoonPay"
+}
+
 For UNCLEAR requests:
 {
   "type": "unclear",
