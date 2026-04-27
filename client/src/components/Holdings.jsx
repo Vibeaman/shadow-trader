@@ -14,7 +14,7 @@ const TOKEN_INFO = {
 // Prices (would come from API in production)
 const PRICES = { SOL: 148, USDC: 1, USDT: 1 };
 
-export default function Holdings({ wallet, demoMode }) {
+export default function Holdings({ wallet, demoMode, walletType }) {
   const [holdings, setHoldings] = useState([]);
   const [vanishHoldings, setVanishHoldings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,16 +28,23 @@ export default function Holdings({ wallet, demoMode }) {
   const [message, setMessage] = useState('');
   const demoBalance = useContext(DemoBalanceContext);
 
-  // Fetch wallet balance from Solana
+  // Fetch wallet balance from Solana (works for both Phantom and Privy wallets)
   const fetchWalletBalance = async () => {
-    if (!wallet || !window.phantom?.solana) return;
+    if (!wallet) return;
+    
+    // Skip if it's an Ethereum address (0x prefix)
+    if (wallet.startsWith('0x')) {
+      console.log('Ethereum address detected, skipping Solana balance fetch');
+      return;
+    }
     
     try {
-      const connection = new (await import('@solana/web3.js')).Connection(
+      const { Connection, PublicKey } = await import('@solana/web3.js');
+      const connection = new Connection(
         'https://api.mainnet-beta.solana.com',
         'confirmed'
       );
-      const pubkey = new (await import('@solana/web3.js')).PublicKey(wallet);
+      const pubkey = new PublicKey(wallet);
       
       // Get SOL balance
       const solBalance = await connection.getBalance(pubkey);

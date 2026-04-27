@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext } from 'react';
-import { PrivyProvider, usePrivy, useWallets } from '@privy-io/react-auth';
+import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
+import { useSolanaWallets } from '@privy-io/react-auth/solana';
 import Landing from './components/Landing';
 import Trade from './components/Trade';
 import Holdings from './components/Holdings';
@@ -20,7 +21,7 @@ const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || 'cmogxd3ym004j0cicd87e
 
 function AppContent() {
   const { ready, authenticated, user, logout } = usePrivy();
-  const { wallets } = useWallets();
+  const { wallets: solanaWallets, createWallet } = useSolanaWallets();
   
   const [phantomWallet, setPhantomWallet] = useState(null);
   const [walletType, setWalletType] = useState(null); // 'phantom' or 'privy'
@@ -51,10 +52,10 @@ function AppContent() {
     if (walletType === 'phantom' && phantomWallet) {
       return phantomWallet;
     }
-    if (walletType === 'privy' && authenticated && wallets.length > 0) {
-      // Find Solana wallet from Privy
-      const solanaWallet = wallets.find(w => w.walletClientType === 'privy' || w.chainType === 'solana');
-      return solanaWallet?.address || null;
+    if (walletType === 'privy' && authenticated && solanaWallets.length > 0) {
+      // Find the embedded Solana wallet
+      const embeddedWallet = solanaWallets.find(w => w.walletClientType === 'privy');
+      return embeddedWallet?.address || solanaWallets[0]?.address || null;
     }
     return null;
   };
@@ -76,12 +77,27 @@ function AppContent() {
     }
   };
 
-  // Handle Privy authentication state
+  // Handle Privy authentication - create Solana wallet if needed
   useEffect(() => {
-    if (authenticated && wallets.length > 0 && !phantomWallet) {
-      setWalletType('privy');
+    const setupSolanaWallet = async () => {
+      if (authenticated && !phantomWallet) {
+        // Check if we have a Solana wallet
+        if (solanaWallets.length === 0) {
+          // Create a Solana wallet for the user
+          try {
+            await createWallet();
+          } catch (e) {
+            console.log('Wallet creation:', e.message);
+          }
+        }
+        setWalletType('privy');
+      }
+    };
+    
+    if (ready && authenticated) {
+      setupSolanaWallet();
     }
-  }, [authenticated, wallets, phantomWallet]);
+  }, [ready, authenticated, solanaWallets.length, phantomWallet, createWallet]);
 
   // Disconnect wallet
   const disconnectWallet = async () => {
@@ -95,6 +111,18 @@ function AppContent() {
     setWalletType(null);
     setActiveTab('trade');
   };
+
+  // Show loading while Privy initializes
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="text-center">
+          <img src="/ghost-logo.png" alt="Ghost" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show landing if not connected
   if (!wallet) {
@@ -158,6 +186,10 @@ function App() {
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
         },
+        // Enable Solana
+        solanaClusters: [
+          { name: 'mainnet-beta', rpcUrl: 'https://api.mainnet-beta.solana.com' }
+        ],
       }}
     >
       <SettingsProvider>
