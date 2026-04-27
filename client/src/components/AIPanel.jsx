@@ -114,7 +114,8 @@ export default function AIPanel({ wallet, demoMode }) {
       // Always check SOL balance first (needed for gas even if trading other tokens)
       try {
         const { Connection, PublicKey } = await import('@solana/web3.js');
-        const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+        // Use Helius public RPC (more reliable than mainnet-beta which rate limits)
+const connection = new Connection('https://mainnet.helius-rpc.com/?api-key=1d8740dc-e5f4-421c-b823-e1bad1889eff', 'confirmed');
         const balance = await connection.getBalance(new PublicKey(wallet));
         const solBalance = balance / 1e9;
         const gasNeeded = 0.015; // ~0.015 SOL for gas + ATAs

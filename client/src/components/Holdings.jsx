@@ -40,8 +40,9 @@ export default function Holdings({ wallet, demoMode, walletType }) {
     
     try {
       const { Connection, PublicKey } = await import('@solana/web3.js');
+      // Use Helius public RPC (more reliable than mainnet-beta which rate limits)
       const connection = new Connection(
-        'https://api.mainnet-beta.solana.com',
+        'https://mainnet.helius-rpc.com/?api-key=1d8740dc-e5f4-421c-b823-e1bad1889eff',
         'confirmed'
       );
       const pubkey = new PublicKey(wallet);
