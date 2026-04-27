@@ -107,8 +107,15 @@ export default function AIPanel({ wallet, demoMode }) {
       return swapResult;
     }
 
-    // Real trade would go here
-    return { success: true, fromAmount: amount, toAmount: amount * 0.99 };
+    // Real trade - need wallet signature, return pending
+    return { 
+      success: false, 
+      pending: true,
+      error: 'Real trades require wallet confirmation. Use the Trade tab to execute with Phantom signing.',
+      fromSymbol,
+      toSymbol,
+      amount
+    };
   };
 
   const callAI = async (userMessage) => {
@@ -138,6 +145,8 @@ export default function AIPanel({ wallet, demoMode }) {
         const swapResult = await executeTrade(fromSymbol, toSymbol, amount);
         if (swapResult.success) {
           return `Done! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately. Check your holdings! 👻`;
+        } else if (swapResult.pending) {
+          return `Ready to swap ${amount} ${fromSymbol} for ${toSymbol}. 👉 Go to the **Trade** tab and tap ${toSymbol} to execute with your wallet.`;
         } else {
           return `Couldn't complete the trade: ${swapResult.error}`;
         }
@@ -275,6 +284,11 @@ When users set up strategies (like "buy when X drops Y%"):
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: `Executed! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately. 👻` 
+      }]);
+    } else if (swapResult.pending) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Ready to swap ${amount} ${fromSymbol} for ${toSymbol}. Go to the Trade tab and tap ${toSymbol} to execute with your wallet.` 
       }]);
     } else {
       setMessages(prev => [...prev, { 
