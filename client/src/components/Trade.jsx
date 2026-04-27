@@ -21,6 +21,7 @@ const FILTERS = ['All', 'Hot', 'New', 'Gainers', 'Losers'];
 export default function Trade({ wallet, demoMode }) {
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState(null);
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedToken, setSelectedToken] = useState(null);
@@ -53,6 +54,7 @@ export default function Trade({ wallet, demoMode }) {
         }
       } catch (error) {
         console.error('[Trade] Price fetch error:', error);
+        setApiError(error.message);
         // Fallback
         setTokens(TOKEN_METADATA.map(t => ({ ...t, price: 0, change: 0 })));
       }
@@ -98,6 +100,13 @@ export default function Trade({ wallet, demoMode }) {
 
   return (
     <div className="px-4 pt-4">
+      {/* API Error Banner */}
+      {apiError && (
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-xs text-red-400">
+          API Error: {apiError}
+        </div>
+      )}
+
       {/* Header - Trojan style */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
