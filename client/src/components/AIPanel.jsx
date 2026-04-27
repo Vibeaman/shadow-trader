@@ -110,6 +110,24 @@ export default function AIPanel({ wallet, demoMode }) {
 
     // Real trade - execute via Vanish with Phantom signing
     try {
+      // Check if wallet has balance (basic SOL check)
+      if (fromSymbol.toUpperCase() === 'SOL') {
+        try {
+          const { Connection, PublicKey } = await import('@solana/web3.js');
+          const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+          const balance = await connection.getBalance(new PublicKey(wallet));
+          const solBalance = balance / 1e9;
+          if (solBalance < amount + 0.01) { // need amount + gas
+            return { 
+              success: false, 
+              error: `Not enough SOL. You have ${solBalance.toFixed(4)} SOL but need ${amount} + gas fees. Deposit some SOL first!` 
+            };
+          }
+        } catch (e) {
+          console.log('Balance check failed, proceeding anyway:', e.message);
+        }
+      }
+
       // Token addresses
       const TOKEN_ADDRESSES = {
         SOL: '11111111111111111111111111111111',
