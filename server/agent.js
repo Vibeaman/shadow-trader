@@ -41,12 +41,18 @@ For IMMEDIATE trades:
 {
   "type": "trade",
   "action": "swap" | "buy" | "sell",
-  "sourceToken": "token being sold",
-  "targetToken": "token being bought", 
-  "amount": "amount in readable format",
+  "sourceToken": "token being SOLD/spent",
+  "targetToken": "token being BOUGHT/received", 
+  "amount": "numeric amount only (no symbols)",
   "confidence": 0-1,
   "response": "friendly confirmation message"
 }
+
+IMPORTANT parsing rules:
+- "Buy X worth of Y" or "Buy Y with X" = sourceToken is X (being sold), targetToken is Y (being bought)
+- "Buy 0.5 SOL worth of JUP" = sell 0.5 SOL to buy JUP, so sourceToken=SOL, targetToken=JUP, amount=0.5
+- "Swap X for Y" = sourceToken is X, targetToken is Y
+- "Sell X for Y" = sourceToken is X, targetToken is Y
 
 For STRATEGY/CONDITIONAL trades:
 {
