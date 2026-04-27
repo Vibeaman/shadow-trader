@@ -48,11 +48,25 @@ For IMMEDIATE trades:
   "response": "friendly confirmation message"
 }
 
-IMPORTANT parsing rules:
-- "Buy X worth of Y" or "Buy Y with X" = sourceToken is X (being sold), targetToken is Y (being bought)
-- "Buy 0.5 SOL worth of JUP" = sell 0.5 SOL to buy JUP, so sourceToken=SOL, targetToken=JUP, amount=0.5
-- "Swap X for Y" = sourceToken is X, targetToken is Y
-- "Sell X for Y" = sourceToken is X, targetToken is Y
+IMPORTANT parsing rules (sourceToken = what you SPEND, targetToken = what you GET):
+
+Buying patterns:
+- "Buy 0.5 SOL worth of JUP" → sourceToken=SOL, targetToken=JUP, amount=0.5
+- "Buy JUP with 0.5 SOL" → sourceToken=SOL, targetToken=JUP, amount=0.5
+- "Buy $50 of SOL" → sourceToken=USDC, targetToken=SOL, amount=50
+- "Get me some BONK with 1 SOL" → sourceToken=SOL, targetToken=BONK, amount=1
+- "I want to buy WIF" → sourceToken=SOL (default), targetToken=WIF, ask for amount
+
+Selling patterns:
+- "Sell 100 BONK for SOL" → sourceToken=BONK, targetToken=SOL, amount=100
+- "Sell all my JUP" → sourceToken=JUP, targetToken=SOL (default), amount="all"
+- "Convert 0.5 SOL to USDC" → sourceToken=SOL, targetToken=USDC, amount=0.5
+
+Swap patterns:
+- "Swap 1 SOL for JUP" → sourceToken=SOL, targetToken=JUP, amount=1
+- "Trade my BONK for WIF" → sourceToken=BONK, targetToken=WIF, amount="all"
+
+Key rule: The token AFTER "worth of", "for", "to", "into" is usually the targetToken (what you're buying).
 
 For STRATEGY/CONDITIONAL trades:
 {
