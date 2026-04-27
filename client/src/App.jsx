@@ -1,6 +1,5 @@
 import { useState, useEffect, createContext } from 'react';
-import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
-import { useSolanaWallets } from '@privy-io/react-auth/solana';
+import { PrivyProvider, usePrivy, useWallets } from '@privy-io/react-auth';
 import Landing from './components/Landing';
 import Trade from './components/Trade';
 import Holdings from './components/Holdings';
@@ -20,8 +19,8 @@ export const WalletTypeContext = createContext('phantom');
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || 'cmogxd3ym004j0cicd87elyrd';
 
 function AppContent() {
-  const { ready, authenticated, user, logout } = usePrivy();
-  const { wallets: solanaWallets, createWallet } = useSolanaWallets();
+  const { ready, authenticated, user, logout, createWallet } = usePrivy();
+  const { wallets } = useWallets();
   
   const [phantomWallet, setPhantomWallet] = useState(null);
   const [walletType, setWalletType] = useState(null); // 'phantom' or 'privy'
@@ -52,12 +51,12 @@ function AppContent() {
     if (walletType === 'phantom' && phantomWallet) {
       return phantomWallet;
     }
-    if (walletType === 'privy' && authenticated && solanaWallets.length > 0) {
-      // Find the embedded Solana wallet (Privy wallet, not external)
-      const embeddedWallet = solanaWallets.find(w => w.walletClientType === 'privy');
+    if (walletType === 'privy' && authenticated && wallets.length > 0) {
+      // Find embedded wallet (Privy's wallet)
+      const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
       if (embeddedWallet) return embeddedWallet.address;
-      // Fallback to first solana wallet
-      return solanaWallets[0]?.address || null;
+      // Fallback to first wallet
+      return wallets[0]?.address || null;
     }
     return null;
   };
@@ -79,29 +78,28 @@ function AppContent() {
     }
   };
 
-  // Handle Privy authentication - create Solana wallet if needed
+  // Handle Privy authentication
   useEffect(() => {
-    const setupSolanaWallet = async () => {
+    const setupWallet = async () => {
       if (authenticated && !phantomWallet) {
         setWalletType('privy');
         
-        // Check if we need to create a Solana wallet
-        if (solanaWallets.length === 0) {
+        // If no wallets yet, try to create one
+        if (wallets.length === 0 && createWallet) {
           try {
-            console.log('Creating Solana wallet...');
+            console.log('Creating wallet...');
             await createWallet();
-            console.log('Solana wallet created');
           } catch (e) {
-            console.log('Wallet creation note:', e.message);
+            console.log('Wallet note:', e.message);
           }
         }
       }
     };
     
     if (ready && authenticated) {
-      setupSolanaWallet();
+      setupWallet();
     }
-  }, [ready, authenticated, solanaWallets.length, phantomWallet, createWallet]);
+  }, [ready, authenticated, wallets.length, phantomWallet, createWallet]);
 
   // Disconnect wallet
   const disconnectWallet = async () => {
@@ -131,12 +129,12 @@ function AppContent() {
   // Show landing if not connected
   if (!wallet) {
     // If authenticated but no wallet yet, show creating message
-    if (authenticated && solanaWallets.length === 0) {
+    if (authenticated && wallets.length === 0) {
       return (
         <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
           <div className="text-center">
             <img src="/ghost-logo.png" alt="Ghost" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
-            <p className="text-gray-400">Creating your Solana wallet...</p>
+            <p className="text-gray-400">Setting up your wallet...</p>
           </div>
         </div>
       );
@@ -196,15 +194,15 @@ function App() {
           theme: 'dark',
           accentColor: '#00D4AA',
           showWalletLoginFirst: false,
-          walletChainType: 'solana-only',
         },
         loginMethods: ['email', 'google', 'twitter'],
         embeddedWallets: {
-          // Solana-specific config
-          solana: {
-            createOnLogin: 'all-users',
-          },
+          createOnLogin: 'users-without-wallets',
         },
+        // Solana clusters for RPC
+        solanaClusters: [
+          { name: 'mainnet-beta', rpcUrl: 'https://api.mainnet-beta.solana.com' }
+        ],
       }}
     >
       <SettingsProvider>
