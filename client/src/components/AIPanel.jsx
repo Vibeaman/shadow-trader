@@ -103,6 +103,17 @@ export default function AIPanel({ wallet, demoMode }) {
       if (backendRes.strategyCreated) {
         return `Got it! I've set up your strategy. I'll monitor prices and execute privately when conditions are met. 👻`;
       }
+
+      // Handle funding commands (MoonPay)
+      if (backendRes.type === 'funding') {
+        if (backendRes.fundingUrl) {
+          // Open MoonPay in new tab
+          window.open(backendRes.fundingUrl, '_blank');
+          return (backendRes.response || "Opening MoonPay...") + " I've opened MoonPay in a new tab for you. 💰";
+        } else {
+          return backendRes.response || "Couldn't set up the funding request. Try again?";
+        }
+      }
     } catch (backendError) {
       console.log('Backend unavailable, falling back to direct AI call');
     }

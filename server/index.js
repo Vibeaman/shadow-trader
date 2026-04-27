@@ -230,6 +230,21 @@ app.post('/api/command', async (req, res) => {
       parsed.strategyId = strategy.id;
       parsed.strategyCreated = true;
     }
+
+    // If it's a funding command, generate MoonPay URL
+    if (parsed.type === 'funding' && userAddress) {
+      const fundingResult = await moonpayService.handleFundingRequest(
+        {
+          action: parsed.action,
+          amount: parsed.amount,
+          targetToken: parsed.targetToken,
+        },
+        userAddress
+      );
+      parsed.fundingUrl = fundingResult.url;
+      parsed.fundingQuote = fundingResult.quote;
+      parsed.response = fundingResult.message;
+    }
     
     res.json(parsed);
   } catch (error) {
