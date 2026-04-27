@@ -1,293 +1,232 @@
 /**
  * Vanish API Client
  * Handles private trading via Vanish Core API
- * Docs: https://core.vanish.trade
+ * Docs: https://core.vanish.trade/api-reference
  */
 
-import pkg from 'tweetnacl';
-const nacl = pkg;
+const VANISH_API_KEY = process.env.VANISH_API_KEY || '2db74e51-8109-4695-9361-91af497f17af';
+const VANISH_BASE_URL = 'https://core-api-dev.vanish.trade';
 
-const VANISH_URL = 'https://core-api.vanish.trade';
-const JUPITER_URL = 'https://quote-api.jup.ag/v6';
-
-// Vanish uses this for native SOL (different from wrapped SOL)
+// Native SOL address for Vanish
 const NATIVE_SOL = '11111111111111111111111111111111';
 
 export class VanishClient {
   constructor() {
-    this.apiKey = process.env.VANISH_API_KEY;
-    if (!this.apiKey) {
-      console.warn('Warning: VANISH_API_KEY not set. Get one from https://discord.gg/vanishtrade');
-    }
+    this.apiKey = VANISH_API_KEY;
+    this.baseUrl = VANISH_BASE_URL;
   }
 
-  async request(path, options = {}) {
-    if (!this.apiKey) {
-      throw new Error('VANISH_API_KEY not configured');
-    }
+  /**
+   * Make authenticated request to Vanish API
+   */
+  async request(endpoint, options = {}) {
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers = {
+      'X-API-Key': this.apiKey,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
-    const res = await fetch(`${VANISH_URL}${path}`, {
+    console.log(`[Vanish] ${options.method || 'GET'} ${endpoint}`);
+
+    const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        ...options.headers,
-      },
+      headers,
     });
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Vanish API error ${res.status}: ${text}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[Vanish] API error:', data);
+      throw new Error(data.error || data.message || `HTTP ${response.status}`);
     }
 
-    return res.json();
+    return data;
   }
 
   /**
-   * Health check
-   */
-  async health() {
-    const res = await fetch(`${VANISH_URL}/health`);
-    return res.json();
-  }
-
-  /**
-   * Generate read signature for balance/account endpoints
-   * Format: "By signing, I hereby agree to Vanish's Terms of Service..."
-   */
-  static generateReadSignature(timestamp, secretKey) {
-    const message = [
-      "By signing, I hereby agree to Vanish's Terms of Service and agree to be bound by them (docs.vanish.trade/legal/TOS)",
-      "",
-      `Details: read:${timestamp}`,
-    ].join('\n');
-    
-    const messageBytes = new TextEncoder().encode(message);
-    const signature = nacl.sign.detached(messageBytes, secretKey);
-    return Buffer.from(signature).toString('base64');
-  }
-
-  /**
-   * Generate trade signature
-   * Format includes: source:target:amount:loan_sol:timestamp:jito_tip
-   */
-  static generateTradeSignature(sourceToken, targetToken, amount, loanSol, timestamp, jitoTip, secretKey) {
-    const message = [
-      "By signing, I hereby agree to Vanish's Terms of Service and agree to be bound by them (docs.vanish.trade/legal/TOS)",
-      "",
-      `Details: trade:${sourceToken}:${targetToken}:${amount}:${loanSol}:${timestamp}:${jitoTip}`,
-    ].join('\n');
-    
-    const messageBytes = new TextEncoder().encode(message);
-    const signature = nacl.sign.detached(messageBytes, secretKey);
-    return Buffer.from(signature).toString('base64');
-  }
-
-  /**
-   * Generate withdraw signature
-   */
-  static generateWithdrawSignature(tokenAddress, amount, additionalSol, timestamp, secretKey) {
-    const message = [
-      "By signing, I hereby agree to Vanish's Terms of Service and agree to be bound by them (docs.vanish.trade/legal/TOS)",
-      "",
-      `Details: withdraw:${tokenAddress}:${amount}:${additionalSol}:${timestamp}`,
-    ].join('\n');
-    
-    const messageBytes = new TextEncoder().encode(message);
-    const signature = nacl.sign.detached(messageBytes, secretKey);
-    return Buffer.from(signature).toString('base64');
-  }
-
-  /**
-   * Get deposit address for funding Vanish balance
-   * Use NATIVE_SOL for native SOL deposits
+   * Get deposit address for a token
    */
   async getDepositAddress(tokenAddress) {
-    // Convert wrapped SOL to native SOL address for Vanish
-    const vanishToken = tokenAddress === TOKENS.SOL ? NATIVE_SOL : tokenAddress;
-    return this.request(`/deposit_address?token_address=${vanishToken}`);
+    return this.request(`/deposit/address?token_address=${tokenAddress}`);
   }
 
   /**
-   * Get user's Vanish balance (requires signature)
+   * Get user's Vanish balance
    */
-  async getBalances(userAddress, signature, timestamp) {
-    return this.request('/account/balances', {
+  async getBalance(userAddress, signature, timestamp) {
+    return this.request('/balance/get', {
       method: 'POST',
       body: JSON.stringify({
         user_address: userAddress,
-        timestamp,
-        signature,
+        timestamp: timestamp.toString(),
+        user_signature: signature,
       }),
     });
   }
 
   /**
-   * Get pending actions for user
+   * Get one-time wallet for a trade
+   * This must be called first before creating a trade
    */
-  async getPendingActions(userAddress, signature, timestamp) {
-    return this.request('/account/pending', {
-      method: 'POST',
-      body: JSON.stringify({
-        user_address: userAddress,
-        timestamp,
-        signature,
-      }),
-    });
-  }
-
-  /**
-   * Get one-time wallet for private trading
-   * MUST fetch a new one for every trade - never reuse!
-   */
-  async getOneTimeWallet() {
-    return this.request('/trade/one-time-wallet');
-  }
-
-  /**
-   * Build swap transaction via Jupiter
-   * Uses one-time wallet as signer (not user wallet!)
-   */
-  async buildSwapTransaction(oneTimeWallet, sourceToken, targetToken, amount) {
-    // Convert native SOL address for Jupiter (it uses wrapped SOL)
-    const jupiterSource = sourceToken === NATIVE_SOL ? TOKENS.SOL : sourceToken;
-    const jupiterTarget = targetToken === NATIVE_SOL ? TOKENS.SOL : targetToken;
-
-    // 1. Get quote from Jupiter
-    const quoteRes = await fetch(
-      `${JUPITER_URL}/quote` +
-      `?inputMint=${jupiterSource}` +
-      `&outputMint=${jupiterTarget}` +
-      `&amount=${amount}` +
-      `&slippageBps=50`
-    );
-    const quote = await quoteRes.json();
-
-    if (quote.error) {
-      throw new Error(`Jupiter quote error: ${quote.error}`);
-    }
-
-    // 2. Get swap transaction (with one-time wallet as signer!)
-    const swapRes = await fetch(`${JUPITER_URL}/swap`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        quoteResponse: quote,
-        userPublicKey: oneTimeWallet, // CRITICAL: must be one-time wallet
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-      }),
-    });
-
-    const swapData = await swapRes.json();
-
-    if (swapData.error) {
-      throw new Error(`Jupiter swap error: ${swapData.error}`);
-    }
-
-    return swapData.swapTransaction;
-  }
-
-  /**
-   * Execute private trade via Vanish
-   * 
-   * @param {Object} params
-   * @param {string} params.userAddress - User's Solana wallet address
-   * @param {string} params.sourceToken - Input token mint (use NATIVE_SOL for SOL)
-   * @param {string} params.targetToken - Output token mint
-   * @param {string} params.amount - Amount in lamports/base units
-   * @param {string} params.swapTransaction - Base64-encoded unsigned swap tx
-   * @param {string} params.oneTimeWallet - Address from getOneTimeWallet()
-   * @param {string} params.userSignature - Signature from generateTradeSignature()
-   * @param {string} params.timestamp - Unix timestamp in milliseconds
-   * @param {string} params.loanSol - Lamports for ATA creation (default: 12000000 = 0.012 SOL)
-   * @param {string} params.jitoTip - Jito tip in lamports (default: 1000000 = 0.001 SOL)
-   * @param {number} params.splitRepay - Number of trading accounts (1-9, default: 1)
-   */
-  async executeTrade({
-    userAddress,
-    sourceToken,
-    targetToken,
-    amount,
-    swapTransaction,
-    oneTimeWallet,
-    userSignature,
-    timestamp,
-    loanSol = '12000000',
-    jitoTip = '1000000',
-    splitRepay = 1,
-  }) {
-    return this.request('/trade/create', {
+  async getOneTimeWallet(userAddress, sourceToken, targetToken) {
+    return this.request('/trade/one-time-wallet', {
       method: 'POST',
       body: JSON.stringify({
         user_address: userAddress,
         source_token_address: sourceToken,
         target_token_address: targetToken,
-        amount,
-        swap_transaction: swapTransaction,
-        one_time_wallet: oneTimeWallet,
-        loan_additional_sol: loanSol,
-        jito_tip_amount: jitoTip,
-        split_repay: splitRepay,
-        timestamp,
-        user_signature: userSignature,
       }),
     });
   }
 
   /**
-   * Commit a transaction (MUST call after deposit or trade)
-   * 
-   * Status values:
-   * - completed: Success, balance updated
-   * - rejected: Failed compliance/risk screening, funds will be refunded
-   * - pending: Waiting for confirmation or screening
-   * - failed: Transaction rejected on-chain
-   * - expired: Transaction not confirmed in time
+   * Get Jupiter swap quote
    */
-  async commit(txId) {
-    return this.request('/commit', {
-      method: 'POST',
-      body: JSON.stringify({ tx_id: txId }),
-    });
+  async getJupiterQuote(inputMint, outputMint, amount, slippageBps = 100) {
+    const url = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to get Jupiter quote');
+    }
+    return response.json();
   }
 
   /**
-   * Create withdrawal request
+   * Get Jupiter swap transaction
    */
-  async createWithdraw({
-    userAddress,
-    tokenAddress,
-    amount,
-    additionalSol = '0',
-    timestamp,
-    userSignature,
-  }) {
+  async getJupiterSwapTransaction(quoteResponse, userPublicKey) {
+    const response = await fetch('https://quote-api.jup.ag/v6/swap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteResponse,
+        userPublicKey,
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: 'auto',
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get Jupiter swap transaction');
+    }
+    return response.json();
+  }
+
+  /**
+   * Create a trade via Vanish
+   * Full flow: get one-time wallet, build swap tx, then create trade
+   */
+  async createTrade(params) {
+    const {
+      userAddress,
+      sourceToken,
+      targetToken,
+      amount, // in lamports/base units
+      slippage = 1, // percent
+      jitoTip = 1000000, // lamports (0.001 SOL)
+      timestamp,
+      userSignature,
+      loanAdditionalSol = 12000000, // 0.012 SOL for ATAs
+    } = params;
+
+    // Step 1: Get one-time wallet
+    console.log('[Vanish] Getting one-time wallet...');
+    const { one_time_wallet, loan_wallet_address } = await this.getOneTimeWallet(
+      userAddress,
+      sourceToken,
+      targetToken
+    );
+    console.log('[Vanish] One-time wallet:', one_time_wallet);
+
+    // Step 2: Get Jupiter quote and swap transaction
+    console.log('[Vanish] Getting Jupiter quote...');
+    const slippageBps = Math.round(slippage * 100); // 1% = 100 bps
+    
+    // Map native SOL to wrapped SOL for Jupiter
+    const jupiterInputMint = sourceToken === NATIVE_SOL 
+      ? 'So11111111111111111111111111111111111111112' 
+      : sourceToken;
+    const jupiterOutputMint = targetToken === NATIVE_SOL 
+      ? 'So11111111111111111111111111111111111111112' 
+      : targetToken;
+
+    const quote = await this.getJupiterQuote(
+      jupiterInputMint,
+      jupiterOutputMint,
+      amount,
+      slippageBps
+    );
+    console.log('[Vanish] Quote received, outAmount:', quote.outAmount);
+
+    // Step 3: Get swap transaction (using one-time wallet as the signer)
+    console.log('[Vanish] Building swap transaction...');
+    const { swapTransaction } = await this.getJupiterSwapTransaction(quote, one_time_wallet);
+    console.log('[Vanish] Swap transaction built');
+
+    // Step 4: Create trade via Vanish
+    console.log('[Vanish] Creating trade...');
+    const tradeResult = await this.request('/trade/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_address: userAddress,
+        source_token_address: sourceToken,
+        target_token_address: targetToken,
+        amount: amount.toString(),
+        jito_tip_amount: jitoTip.toString(),
+        swap_transaction: swapTransaction,
+        loan_wallet_address: loan_wallet_address,
+        loan_additional_sol: loanAdditionalSol.toString(),
+        timestamp: timestamp.toString(),
+        user_signature: userSignature,
+        split_repay: 1,
+        one_time_wallet: one_time_wallet,
+      }),
+    });
+
+    console.log('[Vanish] Trade created:', tradeResult);
+    return {
+      success: true,
+      txId: tradeResult.tx_id,
+      jitoBundleId: tradeResult.jito_bundle_id,
+      outputAmount: quote.outAmount,
+    };
+  }
+
+  /**
+   * Withdraw from Vanish to user's wallet
+   */
+  async withdraw(params) {
+    const {
+      userAddress,
+      tokenAddress,
+      amount,
+      additionalSol = 12000000,
+      timestamp,
+      userSignature,
+    } = params;
+
     return this.request('/withdraw/create', {
       method: 'POST',
       body: JSON.stringify({
         user_address: userAddress,
         token_address: tokenAddress,
-        amount,
-        additional_sol: additionalSol,
-        timestamp,
+        amount: amount.toString(),
+        additional_sol: additionalSol.toString(),
+        timestamp: timestamp.toString(),
         user_signature: userSignature,
       }),
     });
   }
+
+  /**
+   * Check API health
+   */
+  async health() {
+    return this.request('/health');
+  }
 }
 
-// Token addresses - standard SPL tokens
-export const TOKENS = {
-  SOL: 'So11111111111111111111111111111111111111112', // Wrapped SOL (for Jupiter)
-  NATIVE_SOL: '11111111111111111111111111111111', // Native SOL (for Vanish deposits)
-  USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-  JUP: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-  BONK: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-  WIF: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-  RAY: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-  ORCA: 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',
-};
-
-export { NATIVE_SOL };
+// Singleton instance
+export const vanishClient = new VanishClient();

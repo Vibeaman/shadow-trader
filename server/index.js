@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { VanishClient, TOKENS } from './vanish.js';
+import { vanishClient } from './vanishClient.js';
 import { AIAgent } from './agent.js';
 import { priceMonitor } from './priceMonitor.js';
 import { strategyEngine } from './strategyEngine.js';
@@ -88,7 +88,7 @@ app.get('/api/price/:symbol', (req, res) => {
 app.post('/api/balance', async (req, res) => {
   try {
     const { userAddress, signature, timestamp } = req.body;
-    const balance = await vanish.getBalances(userAddress, signature, timestamp);
+    const balance = await vanishClient.getBalances(userAddress, signature, timestamp);
     res.json(balance);
   } catch (error) {
     console.error('[Balance] Error:', error.message);
@@ -100,7 +100,7 @@ app.post('/api/balance', async (req, res) => {
 app.get('/api/balance', async (req, res) => {
   try {
     const { userAddress, signature, timestamp } = req.query;
-    const balance = await vanish.getBalances(userAddress, signature, timestamp);
+    const balance = await vanishClient.getBalances(userAddress, signature, timestamp);
     res.json(balance);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -110,7 +110,7 @@ app.get('/api/balance', async (req, res) => {
 app.get('/api/deposit-address', async (req, res) => {
   try {
     const { tokenAddress } = req.query;
-    const address = await vanish.getDepositAddress(tokenAddress || TOKENS.SOL);
+    const address = await vanishClient.getDepositAddress(tokenAddress || "11111111111111111111111111111111");
     res.json(address);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -124,51 +124,50 @@ app.post('/api/trade', async (req, res) => {
       sourceToken,
       targetToken,
       amount,
+      slippage = 1,
+      jitoTip = 0.001,
       userSignature,
       timestamp
     } = req.body;
 
-    // 1. Get one-time wallet
-    const { address: oneTimeWallet } = await vanish.getOneTimeWallet();
+    // Convert amount to lamports if needed
+    let amountLamports = amount;
+    if (typeof amount === 'string' && !amount.includes('.')) {
+      amountLamports = parseInt(amount);
+    } else {
+      // Assume SOL amount, convert to lamports
+      amountLamports = Math.round(parseFloat(amount) * 1e9);
+    }
 
-    // 2. Build swap transaction via Jupiter
-    const swapTx = await vanish.buildSwapTransaction(
-      oneTimeWallet,
-      sourceToken,
-      targetToken,
-      amount
-    );
+    // Convert jitoTip to lamports
+    const jitoTipLamports = Math.round(parseFloat(jitoTip) * 1e9);
 
-    // 3. Execute private trade
-    const trade = await vanish.executeTrade({
+    // Execute trade via Vanish
+    const result = await vanishClient.createTrade({
       userAddress,
       sourceToken,
       targetToken,
-      amount,
-      swapTransaction: swapTx,
-      oneTimeWallet,
+      amount: amountLamports,
+      slippage,
+      jitoTip: jitoTipLamports,
+      timestamp,
       userSignature,
-      timestamp
     });
 
-    // 4. Commit the trade
-    const result = await vanish.commit(trade.tx_id);
-
-    res.json({
-      success: true,
-      txId: trade.tx_id,
-      status: result.status,
-      balanceChanges: result.balance_changes
-    });
+    res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[Trade] Error:', error.message);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 });
 
 app.post('/api/commit', async (req, res) => {
   try {
     const { txId } = req.body;
-    const result = await vanish.commit(txId);
+    const result = await vanishClient.commit(txId);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -186,7 +185,7 @@ app.post('/api/withdraw', async (req, res) => {
       userSignature,
     } = req.body;
 
-    const result = await vanish.createWithdraw({
+    const result = await vanishClient.createWithdraw({
       userAddress,
       tokenAddress,
       amount,
