@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { vanishClient } from './vanishClient.js';
+import { vanishClient } from './vanish.js';
 import { AIAgent } from './agent.js';
 import { priceMonitor } from './priceMonitor.js';
 import { strategyEngine } from './strategyEngine.js';
