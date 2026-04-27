@@ -153,10 +153,15 @@ export default function AIPanel({ wallet, demoMode }) {
           }
         }
       } catch (e) {
-        // If balance check fails, show friendly error
+        // If balance check fails, show detailed error
+        console.error('[AIPanel] Balance check failed:', e);
         return { 
           success: false, 
-          error: `Couldn't check your balance. Make sure your wallet is connected and try again.` 
+          error: `Couldn't check your balance.\n\n` +
+            `🔍 **Debug info:**\n` +
+            `   • Wallet: ${wallet ? wallet.slice(0, 8) + '...' : 'not set'}\n` +
+            `   • Error: ${e.message}\n\n` +
+            `Make sure your wallet is connected and try again.`
         };
       }
 
