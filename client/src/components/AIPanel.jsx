@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { api, API_BASE } from '../config/api';
 import { DemoBalanceContext } from '../App';
 import { useSettings } from '../hooks/useSettings';
+import { createTradeSignature } from '../utils/vanishSigning';
 
 const SUGGESTIONS = [
   "Buy 0.5 SOL worth of JUP",
@@ -107,15 +108,60 @@ export default function AIPanel({ wallet, demoMode }) {
       return swapResult;
     }
 
-    // Real trade - need wallet signature, return pending
-    return { 
-      success: false, 
-      pending: true,
-      error: 'Real trades require wallet confirmation. Use the Trade tab to execute with Phantom signing.',
-      fromSymbol,
-      toSymbol,
-      amount
-    };
+    // Real trade - execute via Vanish with Phantom signing
+    try {
+      // Token addresses
+      const TOKEN_ADDRESSES = {
+        SOL: '11111111111111111111111111111111',
+        USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        JUP: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+        BONK: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+        WIF: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+        RAY: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+        ORCA: 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',
+      };
+
+      const sourceAddress = TOKEN_ADDRESSES[fromSymbol.toUpperCase()] || TOKEN_ADDRESSES.SOL;
+      const targetAddress = TOKEN_ADDRESSES[toSymbol.toUpperCase()] || TOKEN_ADDRESSES.USDC;
+      
+      // Get settings for trade params
+      const tradeParams = getTradeParams();
+      
+      // Request Phantom signature
+      const { signature, timestamp } = await createTradeSignature({
+        sourceToken: sourceAddress,
+        targetToken: targetAddress,
+        amount: amount.toString(),
+      });
+
+      // Execute trade via backend
+      const result = await api.trade({
+        userAddress: wallet,
+        sourceToken: sourceAddress,
+        targetToken: targetAddress,
+        amount: amount.toString(),
+        slippage: tradeParams.slippage,
+        jitoTip: tradeParams.jitoTip,
+        timestamp,
+        userSignature: signature,
+      });
+
+      if (result.success) {
+        return { 
+          success: true, 
+          fromAmount: amount, 
+          toAmount: result.outputAmount || amount * 0.99,
+          txId: result.txId
+        };
+      } else {
+        return { success: false, error: result.error || 'Trade failed' };
+      }
+    } catch (error) {
+      if (error.message?.includes('User rejected')) {
+        return { success: false, error: 'Transaction cancelled' };
+      }
+      return { success: false, error: error.message };
+    }
   };
 
   const callAI = async (userMessage) => {
@@ -144,9 +190,8 @@ export default function AIPanel({ wallet, demoMode }) {
         // Execute immediately
         const swapResult = await executeTrade(fromSymbol, toSymbol, amount);
         if (swapResult.success) {
-          return `Done! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately. Check your holdings! 👻`;
-        } else if (swapResult.pending) {
-          return `Ready to swap ${amount} ${fromSymbol} for ${toSymbol}. 👉 Go to the **Trade** tab and tap ${toSymbol} to execute with your wallet.`;
+          const txNote = swapResult.txId ? ` TX: ${swapResult.txId.slice(0,8)}...` : '';
+          return `Done! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately.${txNote} Check your holdings! 👻`;
         } else {
           return `Couldn't complete the trade: ${swapResult.error}`;
         }
@@ -281,14 +326,10 @@ When users set up strategies (like "buy when X drops Y%"):
     const swapResult = await executeTrade(fromSymbol, toSymbol, amount);
     
     if (swapResult.success) {
+      const txNote = swapResult.txId ? ` TX: ${swapResult.txId.slice(0,8)}...` : '';
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `Executed! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately. 👻` 
-      }]);
-    } else if (swapResult.pending) {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: `Ready to swap ${amount} ${fromSymbol} for ${toSymbol}. Go to the Trade tab and tap ${toSymbol} to execute with your wallet.` 
+        content: `Executed! Swapped ${swapResult.fromAmount?.toFixed(4) || amount} ${fromSymbol} for ${swapResult.toAmount?.toFixed(4) || 'some'} ${toSymbol} privately.${txNote} 👻` 
       }]);
     } else {
       setMessages(prev => [...prev, { 
