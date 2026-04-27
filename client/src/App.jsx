@@ -39,31 +39,71 @@ function App() {
     localStorage.setItem('ghost_demo_mode', JSON.stringify(demoMode));
   }, [demoMode]);
 
+  // Reconnect function - used on page load and visibility change
+  const reconnect = async () => {
+    const savedWallet = localStorage.getItem('ghost_wallet');
+    if (!savedWallet) return false;
+    
+    // Wait for Phantom to be available
+    let attempts = 0;
+    while (!window.phantom?.solana && attempts < 10) {
+      await new Promise(r => setTimeout(r, 200));
+      attempts++;
+    }
+    
+    if (!window.phantom?.solana) {
+      console.log('[Wallet] Phantom not available');
+      return false;
+    }
+    
+    try {
+      // Check if already connected
+      if (window.phantom.solana.isConnected) {
+        const pubkey = window.phantom.solana.publicKey?.toString();
+        if (pubkey) {
+          console.log('[Wallet] Already connected:', pubkey);
+          setWallet(pubkey);
+          return true;
+        }
+      }
+      
+      // Try to reconnect silently (eagerly)
+      const response = await window.phantom.solana.connect({ onlyIfTrusted: true });
+      const connectedWallet = response.publicKey.toString();
+      setWallet(connectedWallet);
+      console.log('[Wallet] Reconnected:', connectedWallet);
+      return true;
+    } catch (e) {
+      console.log('[Wallet] Auto-reconnect failed:', e.message);
+      // Don't clear wallet - user might still want to try manual reconnect
+      return false;
+    }
+  };
+
   // Auto-reconnect to Phantom on page load
   useEffect(() => {
-    const reconnect = async () => {
+    const init = async () => {
       const savedWallet = localStorage.getItem('ghost_wallet');
-      if (savedWallet && window.phantom?.solana) {
+      if (savedWallet) {
         setIsReconnecting(true);
-        try {
-          // Try to reconnect silently (eagerly)
-          const response = await window.phantom.solana.connect({ onlyIfTrusted: true });
-          const connectedWallet = response.publicKey.toString();
-          setWallet(connectedWallet);
-          console.log('[Wallet] Reconnected:', connectedWallet);
-        } catch (e) {
-          // User needs to manually reconnect
-          console.log('[Wallet] Auto-reconnect failed, clearing saved wallet');
-          localStorage.removeItem('ghost_wallet');
-          setWallet(null);
-        }
+        await reconnect();
         setIsReconnecting(false);
       }
     };
+    init();
+  }, []);
 
-    // Small delay to ensure Phantom is loaded
-    const timer = setTimeout(reconnect, 500);
-    return () => clearTimeout(timer);
+  // Reconnect when page becomes visible (mobile tab switching)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && localStorage.getItem('ghost_wallet')) {
+        console.log('[Wallet] Page visible, checking connection...');
+        await reconnect();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   // Listen for Phantom disconnect events
