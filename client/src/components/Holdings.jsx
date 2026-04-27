@@ -66,9 +66,16 @@ export default function Holdings({ wallet, demoMode, walletType }) {
     }
   };
 
-  // Fetch Vanish balance
-  const fetchVanishBalance = async () => {
+  // Fetch Vanish balance - only when user explicitly requests (requires signature)
+  const fetchVanishBalance = async (forceSign = false) => {
     if (!wallet) return;
+    
+    // Skip auto-fetch to avoid signature popup on every page load
+    // User can click refresh to sign and fetch Vanish balance
+    if (!forceSign) {
+      console.log('[Holdings] Skipping Vanish balance (requires signature)');
+      return;
+    }
     
     try {
       const { signature, timestamp } = await createReadSignature();
@@ -92,12 +99,16 @@ export default function Holdings({ wallet, demoMode, walletType }) {
         setVanishHoldings(vanishHolds);
       }
     } catch (error) {
-      console.error('Failed to fetch Vanish balance:', error);
+      if (error.message?.includes('User rejected')) {
+        console.log('[Holdings] User cancelled signature');
+      } else {
+        console.error('Failed to fetch Vanish balance:', error);
+      }
     }
   };
 
-  // Fetch all balances
-  const fetchAll = async () => {
+  // Fetch all balances (wallet only by default, Vanish requires manual refresh)
+  const fetchAll = async (includeVanish = false) => {
     if (demoMode) {
       if (demoBalance) {
         setHoldings(demoBalance.getHoldings());
@@ -106,12 +117,18 @@ export default function Holdings({ wallet, demoMode, walletType }) {
     }
     
     setLoading(true);
-    await Promise.all([fetchWalletBalance(), fetchVanishBalance()]);
+    // Only fetch wallet balance automatically (no signature required)
+    await fetchWalletBalance();
+    // Vanish balance only when explicitly requested (requires signature)
+    if (includeVanish) {
+      await fetchVanishBalance(true);
+    }
     setLoading(false);
   };
 
+  // Auto-fetch wallet balance on mount (no signature needed)
   useEffect(() => {
-    fetchAll();
+    fetchAll(false);
   }, [wallet, demoMode]);
 
   // Get deposit address
@@ -167,7 +184,7 @@ export default function Holdings({ wallet, demoMode, walletType }) {
         setMessage(`Withdrawal initiated! TX: ${result.txId?.slice(0, 8)}... Check your wallet shortly.`);
         setWithdrawAmount('');
         // Refresh balances after a delay
-        setTimeout(() => fetchAll(), 3000);
+        setTimeout(() => fetchAll(true), 3000);
       } else {
         setMessage('Withdraw failed: ' + (result.error || 'Unknown error'));
       }
@@ -194,7 +211,7 @@ export default function Holdings({ wallet, demoMode, walletType }) {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold">Holdings</h1>
         <button
-          onClick={fetchAll}
+          onClick={() => fetchAll(true)}
           disabled={loading}
           className="p-2 rounded-lg bg-[#1f1f2e] hover:bg-[#2a2a3a] transition-colors"
         >
