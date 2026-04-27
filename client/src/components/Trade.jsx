@@ -2,22 +2,23 @@ import { useState, useEffect } from 'react';
 import SwapModal from './SwapModal';
 import { api } from '../config/api';
 
-// Mock token data - will be replaced with real API calls
-const MOCK_TOKENS = [
-  { symbol: 'SOL', name: 'Solana', price: 148.52, change: 5.2, mcap: '68.2B', age: '5y', image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', address: 'So11111111111111111111111111111111111111112' },
-  { symbol: 'JUP', name: 'Jupiter', price: 0.892, change: -2.1, mcap: '1.2B', age: '1y', image: 'https://static.jup.ag/jup/icon.png', address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN' },
-  { symbol: 'BONK', name: 'Bonk', price: 0.0000234, change: 12.4, mcap: '1.8B', age: '2y', image: 'https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I', address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
-  { symbol: 'WIF', name: 'dogwifhat', price: 2.34, change: 8.7, mcap: '2.3B', age: '1y', image: 'https://bafkreibk3covs5ltyqxa272uodhber6lsmv6klxq3e6f6v7wzq3wmxgwii.ipfs.nftstorage.link/', address: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm' },
-  { symbol: 'PYTH', name: 'Pyth Network', price: 0.412, change: -0.8, mcap: '1.5B', age: '1y', image: 'https://pyth.network/token.png', address: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3' },
-  { symbol: 'RAY', name: 'Raydium', price: 5.67, change: 3.2, mcap: '780M', age: '3y', image: 'https://raw.githubusercontent.com/raydium-io/media-assets/master/logo.png', address: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R' },
-  { symbol: 'ORCA', name: 'Orca', price: 4.12, change: 1.5, mcap: '420M', age: '3y', image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE/logo.png', address: 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE' },
-  { symbol: 'RENDER', name: 'Render', price: 7.89, change: -1.2, mcap: '3.1B', age: '2y', image: 'https://s2.coinmarketcap.com/static/img/coins/64x64/5690.png', address: 'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof' },
+// Token metadata - prices will be fetched from API
+const TOKEN_METADATA = [
+  { symbol: 'SOL', name: 'Solana', mcap: '68.2B', age: '5y', image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', address: 'So11111111111111111111111111111111111111112' },
+  { symbol: 'JUP', name: 'Jupiter', mcap: '1.2B', age: '1y', image: 'https://static.jup.ag/jup/icon.png', address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN' },
+  { symbol: 'BONK', name: 'Bonk', mcap: '1.8B', age: '2y', image: 'https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I', address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
+  { symbol: 'WIF', name: 'dogwifhat', mcap: '2.3B', age: '1y', image: 'https://bafkreibk3covs5ltyqxa272uodhber6lsmv6klxq3e6f6v7wzq3wmxgwii.ipfs.nftstorage.link/', address: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm' },
+  { symbol: 'PYTH', name: 'Pyth Network', mcap: '1.5B', age: '1y', image: 'https://pyth.network/token.png', address: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3' },
+  { symbol: 'RAY', name: 'Raydium', mcap: '780M', age: '3y', image: 'https://raw.githubusercontent.com/raydium-io/media-assets/master/logo.png', address: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R' },
+  { symbol: 'ORCA', name: 'Orca', mcap: '420M', age: '3y', image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE/logo.png', address: 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE' },
+  { symbol: 'RENDER', name: 'Render', mcap: '3.1B', age: '2y', image: 'https://s2.coinmarketcap.com/static/img/coins/64x64/5690.png', address: 'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof' },
 ];
 
 const FILTERS = ['All', 'Hot', 'New', 'Gainers', 'Losers'];
 
 export default function Trade({ wallet, demoMode }) {
-  const [tokens, setTokens] = useState(MOCK_TOKENS);
+  const [tokens, setTokens] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedToken, setSelectedToken] = useState(null);
@@ -29,22 +30,26 @@ export default function Trade({ wallet, demoMode }) {
       try {
         const data = await api.getPrices();
         if (data.success && data.prices) {
-          // Update mock tokens with live prices
-          setTokens(prev => prev.map(token => {
+          // Merge metadata with live prices
+          const updatedTokens = TOKEN_METADATA.map(token => {
             const livePrice = data.prices[token.symbol];
-            if (livePrice) {
-              return {
-                ...token,
-                price: livePrice.price,
-                change: livePrice.change5m || token.change,
-              };
-            }
-            return token;
-          }));
+            return {
+              ...token,
+              price: livePrice?.price || 0,
+              change: livePrice?.change24h || 0,
+            };
+          });
+          setTokens(updatedTokens);
+        } else {
+          // Fallback - show tokens with 0 price
+          setTokens(TOKEN_METADATA.map(t => ({ ...t, price: 0, change: 0 })));
         }
       } catch (error) {
-        console.log('Using mock prices (backend unavailable)');
+        console.error('Price fetch error:', error);
+        // Fallback
+        setTokens(TOKEN_METADATA.map(t => ({ ...t, price: 0, change: 0 })));
       }
+      setLoading(false);
     };
 
     fetchPrices();
