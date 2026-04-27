@@ -23,7 +23,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const vanish = new VanishClient();
+// vanishClient imported as singleton from vanish.js
 const agent = new AIAgent();
 
 // Start services
