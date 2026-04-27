@@ -148,11 +148,12 @@ export default function AIPanel({ wallet, demoMode }) {
         if (backendRes.fundingUrl) {
           // Try to open MoonPay in new tab (may be blocked on mobile)
           const opened = window.open(backendRes.fundingUrl, '_blank');
+          const testModeNote = "\n\n⚠️ Demo mode - MoonPay API keys required for live transactions.";
           if (opened) {
-            return (backendRes.response || "Opening MoonPay...") + " I've opened MoonPay in a new tab. 💰";
+            return (backendRes.response || "Opening MoonPay...") + " I've opened MoonPay in a new tab. 💰" + testModeNote;
           } else {
             // Popup blocked - return URL in message
-            return (backendRes.response || "Ready!") + `\n\n👉 [Open MoonPay](${backendRes.fundingUrl})`;
+            return (backendRes.response || "Ready!") + `\n\n👉 [Open MoonPay](${backendRes.fundingUrl})` + testModeNote;
           }
         } else {
           return backendRes.response || "Couldn't set up the funding request. Try again?";
