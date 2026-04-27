@@ -13,18 +13,86 @@ import './index.css';
 export const DemoBalanceContext = createContext(null);
 
 function App() {
-  const [wallet, setWallet] = useState(null);
+  const [wallet, setWallet] = useState(() => {
+    // Try to restore wallet from localStorage
+    return localStorage.getItem('ghost_wallet') || null;
+  });
   const [activeTab, setActiveTab] = useState('trade');
   const [demoMode, setDemoMode] = useState(() => {
     const saved = localStorage.getItem('ghost_demo_mode');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const demoBalance = useDemoBalance();
+
+  // Save wallet to localStorage when it changes
+  useEffect(() => {
+    if (wallet) {
+      localStorage.setItem('ghost_wallet', wallet);
+    } else {
+      localStorage.removeItem('ghost_wallet');
+    }
+  }, [wallet]);
 
   // Save demo mode to localStorage
   useEffect(() => {
     localStorage.setItem('ghost_demo_mode', JSON.stringify(demoMode));
   }, [demoMode]);
+
+  // Auto-reconnect to Phantom on page load
+  useEffect(() => {
+    const reconnect = async () => {
+      const savedWallet = localStorage.getItem('ghost_wallet');
+      if (savedWallet && window.phantom?.solana) {
+        setIsReconnecting(true);
+        try {
+          // Try to reconnect silently (eagerly)
+          const response = await window.phantom.solana.connect({ onlyIfTrusted: true });
+          const connectedWallet = response.publicKey.toString();
+          setWallet(connectedWallet);
+          console.log('[Wallet] Reconnected:', connectedWallet);
+        } catch (e) {
+          // User needs to manually reconnect
+          console.log('[Wallet] Auto-reconnect failed, clearing saved wallet');
+          localStorage.removeItem('ghost_wallet');
+          setWallet(null);
+        }
+        setIsReconnecting(false);
+      }
+    };
+
+    // Small delay to ensure Phantom is loaded
+    const timer = setTimeout(reconnect, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Listen for Phantom disconnect events
+  useEffect(() => {
+    if (window.phantom?.solana) {
+      const handleDisconnect = () => {
+        console.log('[Wallet] Disconnected by Phantom');
+        setWallet(null);
+        localStorage.removeItem('ghost_wallet');
+      };
+
+      const handleAccountChanged = (publicKey) => {
+        if (publicKey) {
+          console.log('[Wallet] Account changed:', publicKey.toString());
+          setWallet(publicKey.toString());
+        } else {
+          handleDisconnect();
+        }
+      };
+
+      window.phantom.solana.on('disconnect', handleDisconnect);
+      window.phantom.solana.on('accountChanged', handleAccountChanged);
+
+      return () => {
+        window.phantom.solana.off('disconnect', handleDisconnect);
+        window.phantom.solana.off('accountChanged', handleAccountChanged);
+      };
+    }
+  }, []);
 
   // Hide the HTML preloader when React is ready
   useEffect(() => {
@@ -41,7 +109,9 @@ function App() {
     try {
       if (window.phantom?.solana) {
         const response = await window.phantom.solana.connect();
-        setWallet(response.publicKey.toString());
+        const connectedWallet = response.publicKey.toString();
+        setWallet(connectedWallet);
+        console.log('[Wallet] Connected:', connectedWallet);
       } else {
         window.open('https://phantom.app/', '_blank');
       }
@@ -56,8 +126,21 @@ function App() {
       await window.phantom.solana.disconnect();
     }
     setWallet(null);
+    localStorage.removeItem('ghost_wallet');
     setActiveTab('trade');
   };
+
+  // Show loading while reconnecting
+  if (isReconnecting) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="text-center">
+          <img src="/ghost-logo.png" alt="Ghost" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-500">Reconnecting wallet...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show landing if not connected
   if (!wallet) {
