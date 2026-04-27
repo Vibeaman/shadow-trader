@@ -28,9 +28,12 @@ export class AIAgent {
 Available tokens: SOL, USDC, USDT, JUP, BONK, WIF, RAY, ORCA
 
 Determine if this is:
-1. An IMMEDIATE trade (execute now)
+1. An IMMEDIATE trade (execute now) - swapping one crypto for another
 2. A STRATEGY/CONDITIONAL trade (execute when conditions are met)
 3. A QUESTION (asking about prices, info, etc.)
+4. A FUNDING request (adding fiat money OR cashing out to bank/fiat)
+
+IMPORTANT: "Cash out to bank", "withdraw to my bank", "fund my wallet with $X", "add money", "buy crypto with card" are FUNDING requests, not trades.
 
 Return JSON with these fields:
 
@@ -67,11 +70,13 @@ For QUESTIONS:
   "response": "helpful answer"
 }
 
-For FUNDING requests (user wants to add money to wallet):
+For FUNDING requests (fiat on/off ramp via MoonPay):
+- "fund my wallet", "add $50", "buy SOL with card" = onramp (fiat -> crypto)
+- "cash out to bank", "withdraw to fiat", "sell to my bank" = offramp (crypto -> fiat)
 {
   "type": "funding",
   "action": "onramp" | "offramp",
-  "amount": "dollar amount",
+  "amount": "amount (dollar amount for onramp, crypto amount for offramp)",
   "currency": "USD" | "EUR" | etc,
   "targetToken": "SOL" or "USDC" (what to buy),
   "response": "confirmation about funding via MoonPay"
