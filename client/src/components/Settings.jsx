@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../config/api';
 import { useSettings } from '../hooks/useSettings';
 
-export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode, walletType, user }) {
+export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }) {
   const [activeTab, setActiveTab] = useState('General');
   const { settings, updateSetting } = useSettings();
   const [vaultStatus, setVaultStatus] = useState(null);
@@ -79,25 +79,9 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode, 
         {/* Wallet Card */}
         <div className="card p-4 mb-4">
           <div className="flex items-center gap-3">
-            {walletType === 'privy' ? (
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-            ) : (
-              <img src="/phantom-icon.png" alt="Phantom" className="w-10 h-10 rounded-xl" onError={(e) => e.target.style.display='none'} />
-            )}
+            <img src="/phantom-icon.png" alt="Phantom" className="w-10 h-10 rounded-xl" onError={(e) => e.target.style.display='none'} />
             <div className="flex-1">
-              <div className="font-medium flex items-center gap-2">
-                {walletType === 'privy' ? 'Privy Wallet' : 'Phantom'}
-                {walletType === 'privy' && (
-                  <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded">Gasless</span>
-                )}
-              </div>
-              {walletType === 'privy' && user?.email?.address && (
-                <div className="text-sm text-gray-500">{user.email.address}</div>
-              )}
+              <div className="font-medium">Phantom</div>
               <div className="text-sm text-gray-500 font-mono">
                 {wallet.slice(0, 6)}...{wallet.slice(-6)}
               </div>
@@ -108,7 +92,7 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode, 
             onClick={onDisconnect}
             className="w-full mt-3 py-2.5 border border-red-500/30 text-red-400 rounded-xl text-sm font-medium hover:bg-red-500/10 transition-colors"
           >
-            {walletType === 'privy' ? 'Sign Out' : 'Disconnect Wallet'}
+            Disconnect Wallet
           </button>
         </div>
       </div>

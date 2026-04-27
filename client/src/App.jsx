@@ -1,5 +1,4 @@
 import { useState, useEffect, createContext } from 'react';
-import { PrivyProvider, usePrivy, useWallets } from '@privy-io/react-auth';
 import Landing from './components/Landing';
 import Trade from './components/Trade';
 import Holdings from './components/Holdings';
@@ -13,17 +12,8 @@ import './index.css';
 // Context for demo balance
 export const DemoBalanceContext = createContext(null);
 
-// Context for wallet type (phantom vs privy)
-export const WalletTypeContext = createContext('phantom');
-
-const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || 'cmogxd3ym004j0cicd87elyrd';
-
-function AppContent() {
-  const { ready, authenticated, user, logout, createWallet } = usePrivy();
-  const { wallets } = useWallets();
-  
-  const [phantomWallet, setPhantomWallet] = useState(null);
-  const [walletType, setWalletType] = useState(null); // 'phantom' or 'privy'
+function App() {
+  const [wallet, setWallet] = useState(null);
   const [activeTab, setActiveTab] = useState('trade');
   const [demoMode, setDemoMode] = useState(() => {
     const saved = localStorage.getItem('ghost_demo_mode');
@@ -46,113 +36,38 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Get the active wallet address
-  const getActiveWallet = () => {
-    if (walletType === 'phantom' && phantomWallet) {
-      return phantomWallet;
-    }
-    if (walletType === 'privy' && authenticated && wallets.length > 0) {
-      // Find embedded wallet (Privy's wallet)
-      const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
-      if (embeddedWallet) return embeddedWallet.address;
-      // Fallback to first wallet
-      return wallets[0]?.address || null;
-    }
-    return null;
-  };
-
-  const wallet = getActiveWallet();
-
   // Connect Phantom wallet
-  const connectPhantom = async () => {
+  const connectWallet = async () => {
     try {
       if (window.phantom?.solana) {
         const response = await window.phantom.solana.connect();
-        setPhantomWallet(response.publicKey.toString());
-        setWalletType('phantom');
+        setWallet(response.publicKey.toString());
       } else {
         window.open('https://phantom.app/', '_blank');
       }
     } catch (error) {
-      console.error('Phantom connection failed:', error);
+      console.error('Wallet connection failed:', error);
     }
   };
-
-  // Handle Privy authentication
-  useEffect(() => {
-    const setupWallet = async () => {
-      if (authenticated && !phantomWallet) {
-        setWalletType('privy');
-        
-        // If no wallets yet, try to create one
-        if (wallets.length === 0 && createWallet) {
-          try {
-            console.log('Creating wallet...');
-            await createWallet();
-          } catch (e) {
-            console.log('Wallet note:', e.message);
-          }
-        }
-      }
-    };
-    
-    if (ready && authenticated) {
-      setupWallet();
-    }
-  }, [ready, authenticated, wallets.length, phantomWallet, createWallet]);
 
   // Disconnect wallet
   const disconnectWallet = async () => {
-    if (walletType === 'phantom' && window.phantom?.solana) {
+    if (window.phantom?.solana) {
       await window.phantom.solana.disconnect();
-      setPhantomWallet(null);
     }
-    if (walletType === 'privy') {
-      await logout();
-    }
-    setWalletType(null);
+    setWallet(null);
     setActiveTab('trade');
   };
 
-  // Show loading while Privy initializes
-  if (!ready) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-center">
-          <img src="/ghost-logo.png" alt="Ghost" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
-          <p className="text-gray-500">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Show landing if not connected
   if (!wallet) {
-    // If authenticated but no wallet yet, show creating message
-    if (authenticated && wallets.length === 0) {
-      return (
-        <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-          <div className="text-center">
-            <img src="/ghost-logo.png" alt="Ghost" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
-            <p className="text-gray-400">Setting up your wallet...</p>
-          </div>
-        </div>
-      );
-    }
-    return <Landing onConnect={connectPhantom} />;
+    return <Landing onConnect={connectWallet} />;
   }
 
   return (
-    <WalletTypeContext.Provider value={walletType}>
+    <SettingsProvider>
       <DemoBalanceContext.Provider value={demoBalance}>
         <div className="min-h-screen bg-[#0a0a0f] text-white pb-20">
-          {/* Wallet Type Banner */}
-          {walletType === 'privy' && (
-            <div className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-2 text-center text-cyan-400 text-xs">
-              ⚡ Gasless Mode via Privy
-            </div>
-          )}
-          
           {/* Demo Mode Banner */}
           {demoMode && (
             <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2 text-center text-yellow-400 text-xs">
@@ -162,17 +77,15 @@ function AppContent() {
 
           {/* Main Content */}
           <main className="max-w-lg mx-auto">
-            {activeTab === 'trade' && <Trade wallet={wallet} demoMode={demoMode} walletType={walletType} />}
-            {activeTab === 'holdings' && <Holdings wallet={wallet} demoMode={demoMode} walletType={walletType} />}
-            {activeTab === 'ai' && <AIPanel wallet={wallet} demoMode={demoMode} walletType={walletType} />}
+            {activeTab === 'trade' && <Trade wallet={wallet} demoMode={demoMode} />}
+            {activeTab === 'holdings' && <Holdings wallet={wallet} demoMode={demoMode} />}
+            {activeTab === 'ai' && <AIPanel wallet={wallet} demoMode={demoMode} />}
             {activeTab === 'settings' && (
               <Settings 
                 wallet={wallet} 
                 onDisconnect={disconnectWallet}
                 demoMode={demoMode}
                 setDemoMode={setDemoMode}
-                walletType={walletType}
-                user={user}
               />
             )}
           </main>
@@ -181,34 +94,7 @@ function AppContent() {
           <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
       </DemoBalanceContext.Provider>
-    </WalletTypeContext.Provider>
-  );
-}
-
-function App() {
-  return (
-    <PrivyProvider
-      appId={PRIVY_APP_ID}
-      config={{
-        appearance: {
-          theme: 'dark',
-          accentColor: '#00D4AA',
-          showWalletLoginFirst: false,
-        },
-        loginMethods: ['email', 'google', 'twitter'],
-        embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
-        },
-        // Solana clusters for RPC
-        solanaClusters: [
-          { name: 'mainnet-beta', rpcUrl: 'https://api.mainnet-beta.solana.com' }
-        ],
-      }}
-    >
-      <SettingsProvider>
-        <AppContent />
-      </SettingsProvider>
-    </PrivyProvider>
+    </SettingsProvider>
   );
 }
 

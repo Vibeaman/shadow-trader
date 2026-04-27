@@ -8,7 +8,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@privy-io/react-auth": "^2.0.0",
     "@solana/web3.js": "^1.98.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
