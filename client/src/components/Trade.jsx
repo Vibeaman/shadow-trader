@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import SwapModal from './SwapModal';
 import { api } from '../config/api';
 
+// Build: 2026-04-27T12:50
+
 // Token metadata - prices will be fetched from API
 const TOKEN_METADATA = [
   { symbol: 'SOL', name: 'Solana', mcap: '68.2B', age: '5y', image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', address: 'So11111111111111111111111111111111111111112' },
