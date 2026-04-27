@@ -362,14 +362,18 @@ export default function Settings({ wallet, onDisconnect, demoMode, setDemoMode }
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Built for</span>
-                  <span>Colosseum Frontier 2026</span>
+                  <span>Colosseum Hackathon 2026</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Privacy</span>
-                  <span>Vanish Protocol</span>
+                  <span className="text-gray-500">Private Swaps</span>
+                  <span className="text-cyan-400">Vanish Protocol</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">AI</span>
+                  <span className="text-gray-500">Encrypted Strategies</span>
+                  <span className="text-purple-400">Arcium MPC</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">AI Agent</span>
                   <span>OpenRouter</span>
                 </div>
                 <div className="flex justify-between">
