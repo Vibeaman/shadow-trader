@@ -53,9 +53,11 @@ function AppContent() {
       return phantomWallet;
     }
     if (walletType === 'privy' && authenticated && solanaWallets.length > 0) {
-      // Find the embedded Solana wallet
+      // Find the embedded Solana wallet (Privy wallet, not external)
       const embeddedWallet = solanaWallets.find(w => w.walletClientType === 'privy');
-      return embeddedWallet?.address || solanaWallets[0]?.address || null;
+      if (embeddedWallet) return embeddedWallet.address;
+      // Fallback to first solana wallet
+      return solanaWallets[0]?.address || null;
     }
     return null;
   };
@@ -81,16 +83,18 @@ function AppContent() {
   useEffect(() => {
     const setupSolanaWallet = async () => {
       if (authenticated && !phantomWallet) {
-        // Check if we have a Solana wallet
+        setWalletType('privy');
+        
+        // Check if we need to create a Solana wallet
         if (solanaWallets.length === 0) {
-          // Create a Solana wallet for the user
           try {
+            console.log('Creating Solana wallet...');
             await createWallet();
+            console.log('Solana wallet created');
           } catch (e) {
-            console.log('Wallet creation:', e.message);
+            console.log('Wallet creation note:', e.message);
           }
         }
-        setWalletType('privy');
       }
     };
     
@@ -126,6 +130,17 @@ function AppContent() {
 
   // Show landing if not connected
   if (!wallet) {
+    // If authenticated but no wallet yet, show creating message
+    if (authenticated && solanaWallets.length === 0) {
+      return (
+        <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+          <div className="text-center">
+            <img src="/ghost-logo.png" alt="Ghost" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
+            <p className="text-gray-400">Creating your Solana wallet...</p>
+          </div>
+        </div>
+      );
+    }
     return <Landing onConnect={connectPhantom} />;
   }
 
@@ -181,15 +196,15 @@ function App() {
           theme: 'dark',
           accentColor: '#00D4AA',
           showWalletLoginFirst: false,
+          walletChainType: 'solana-only',
         },
         loginMethods: ['email', 'google', 'twitter'],
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
+          // Solana-specific config
+          solana: {
+            createOnLogin: 'all-users',
+          },
         },
-        // Enable Solana
-        solanaClusters: [
-          { name: 'mainnet-beta', rpcUrl: 'https://api.mainnet-beta.solana.com' }
-        ],
       }}
     >
       <SettingsProvider>
