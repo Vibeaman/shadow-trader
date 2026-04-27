@@ -111,21 +111,36 @@ export default function AIPanel({ wallet, demoMode }) {
     // Real trade - execute via Vanish with Phantom signing
     try {
       // Check if wallet has balance (basic SOL check)
-      if (fromSymbol.toUpperCase() === 'SOL') {
-        try {
-          const { Connection, PublicKey } = await import('@solana/web3.js');
-          const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
-          const balance = await connection.getBalance(new PublicKey(wallet));
-          const solBalance = balance / 1e9;
-          if (solBalance < amount + 0.01) { // need amount + gas
+      // Always check SOL balance first (needed for gas even if trading other tokens)
+      try {
+        const { Connection, PublicKey } = await import('@solana/web3.js');
+        const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+        const balance = await connection.getBalance(new PublicKey(wallet));
+        const solBalance = balance / 1e9;
+        
+        // If trading SOL, need amount + gas
+        if (fromSymbol.toUpperCase() === 'SOL') {
+          if (solBalance < amount + 0.01) {
             return { 
               success: false, 
-              error: `Not enough SOL. You have ${solBalance.toFixed(4)} SOL but need ${amount} + gas fees. Deposit some SOL first!` 
+              error: `Not enough SOL. You have ${solBalance.toFixed(4)} SOL but need ${amount} SOL + ~0.01 SOL for gas. Deposit SOL to your wallet first!` 
             };
           }
-        } catch (e) {
-          console.log('Balance check failed, proceeding anyway:', e.message);
+        } else {
+          // Trading other token, still need SOL for gas
+          if (solBalance < 0.01) {
+            return { 
+              success: false, 
+              error: `Not enough SOL for gas fees. You have ${solBalance.toFixed(4)} SOL but need ~0.01 SOL. Deposit some SOL first!` 
+            };
+          }
         }
+      } catch (e) {
+        // If balance check fails, show friendly error
+        return { 
+          success: false, 
+          error: `Couldn't check your balance. Make sure your wallet is connected and try again.` 
+        };
       }
 
       // Token addresses
